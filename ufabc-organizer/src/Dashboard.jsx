@@ -7,11 +7,11 @@ export default function Dashboard({ session }) {
   const [tasks, setTasks] = useState([])
   const [newTaskTitle, setNewTaskTitle] = useState('')
   const [newTaskDate, setNewTaskDate] = useState('')
-  
+
   // Estados do Feed Coletivo
   const [posts, setPosts] = useState([])
   const [newPostContent, setNewPostContent] = useState('')
-  
+
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
@@ -90,34 +90,45 @@ export default function Dashboard({ session }) {
   const fetchPosts = async () => {
     const { data, error } = await supabase
       .from('posts')
-      .select('*')
+      .select(`
+        id,
+        content,
+        created_at,
+        user_id,
+        profiles (
+          username
+        )
+      `)
       .order('created_at', { ascending: false })
 
-    if (error) console.error('Erro ao buscar feed:', error.message)
-    else setPosts(data || [])
+    if (error) {
+      console.error('Erro ao buscar feed:', error.message)
+    } else {
+      setPosts(data || [])
+    }
   }
 
-    const handleCreatePost = async (e) => {
-        e.preventDefault()
-        if (!newPostContent.trim()) return
+  const handleCreatePost = async (e) => {
+    e.preventDefault()
+    if (!newPostContent.trim()) return
 
-        const { error } = await supabase
-        .from('posts')
-        .insert([
-            {
-            user_id: session.user.id,
-            content: newPostContent
-            }
-        ])
-
-        if (error) {
-        alert('Erro ao postar no feed: ' + error.message)
-        } else {
-        setNewPostContent('')
-        fetchPosts()
+    const { error } = await supabase
+      .from('posts')
+      .insert([
+        {
+          user_id: session.user.id,
+          content: newPostContent
         }
+      ])
+
+    if (error) {
+      alert('Erro ao postar no feed: ' + error.message)
+    } else {
+      setNewPostContent('')
+      fetchPosts()
     }
-  
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 font-sans">
       {/* Barra Superior */}
@@ -127,7 +138,7 @@ export default function Dashboard({ session }) {
         </div>
         <div className="flex items-center space-x-4">
           <span className="text-sm opacity-90 hidden sm:inline">{session.user.email}</span>
-          <button 
+          <button
             onClick={() => supabase.auth.signOut()}
             className="flex items-center space-x-1 bg-ufabc-dourado hover:bg-ufabc-dourado/80 text-white px-3 py-1.5 rounded-lg text-sm font-semibold transition shadow"
           >
@@ -139,7 +150,7 @@ export default function Dashboard({ session }) {
 
       {/* Grid Principal */}
       <div className="max-w-6xl mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
+
         {/* Coluna de Tarefas (Privadas) */}
         <div className="lg:col-span-2 space-y-6">
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
@@ -178,14 +189,13 @@ export default function Dashboard({ session }) {
                 <p className="text-center text-gray-400 text-sm py-8">Nenhuma tarefa cadastrada.</p>
               ) : (
                 tasks.map((task) => (
-                  <div 
-                    key={task.id} 
-                    className={`flex items-center justify-between p-4 rounded-lg border transition ${
-                      task.is_completed ? 'bg-gray-50 border-gray-200 opacity-70' : 'bg-white border-gray-200 hover:shadow-sm'
-                    }`}
+                  <div
+                    key={task.id}
+                    className={`flex items-center justify-between p-4 rounded-lg border transition ${task.is_completed ? 'bg-gray-50 border-gray-200 opacity-70' : 'bg-white border-gray-200 hover:shadow-sm'
+                      }`}
                   >
                     <div className="flex items-center space-x-3 flex-1 min-w-0">
-                      <button 
+                      <button
                         onClick={() => toggleTaskComplete(task.id, task.is_completed)}
                         className="text-gray-400 hover:text-ufabc-verde transition shrink-0"
                       >
@@ -207,7 +217,7 @@ export default function Dashboard({ session }) {
                         )}
                       </div>
                     </div>
-                    <button 
+                    <button
                       onClick={() => deleteTask(task.id)}
                       className="text-gray-400 hover:text-red-500 p-1 transition shrink-0 ml-2"
                     >
@@ -228,7 +238,7 @@ export default function Dashboard({ session }) {
               <span>Feed Central da UFABC</span>
             </h2>
             <p className="text-xs text-gray-500 mb-4">Compartilhe avisos, links ou resumos com a comunidade.</p>
-            
+
             {/* Form de Postar no Feed */}
             <form onSubmit={handleCreatePost} className="mb-4 flex gap-2">
               <input
@@ -255,7 +265,7 @@ export default function Dashboard({ session }) {
                 posts.map((post) => (
                   <div key={post.id} className="bg-gray-50 p-3 rounded-lg border border-gray-150">
                     <p className="text-[11px] font-semibold text-ufabc-verde truncate mb-1">
-                        Estudante UFABC
+                      {post.profiles?.username || 'Estudante Sem Nome'}
                     </p>
                     <p className="text-xs text-gray-700 whitespace-pre-wrap break-words">
                       {post.content}

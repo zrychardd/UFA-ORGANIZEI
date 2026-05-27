@@ -66,9 +66,8 @@ export default function Auth({ onLoginSuccess }) {
 
         {/* Mensagens de Feedback */}
         {message.text && (
-          <div className={`p-3 rounded-lg mb-4 text-sm font-medium ${
-            message.type === 'error' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'
-          }`}>
+          <div className={`p-3 rounded-lg mb-4 text-sm font-medium ${message.type === 'error' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'
+            }`}>
             {message.text}
           </div>
         )}
