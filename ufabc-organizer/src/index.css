@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@variant dark (&:where(.dark, .dark *));
+
 @theme {
   --color-ufabc-verde: #00674F;
   --color-ufabc-dourado: #C8A923;
