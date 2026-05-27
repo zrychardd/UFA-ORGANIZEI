@@ -88,24 +88,47 @@ export default function Dashboard({ session }) {
 
   // ==================== LÓGICA DO FEED (PÚBLICO) ====================
   const fetchPosts = async () => {
-    const { data, error } = await supabase
+    // Buscamos os posts de forma direta para garantir que eles SEMPRE apareçam na tela
+    const { data: postsData, error: postsError } = await supabase
       .from('posts')
-      .select(`
-        id,
-        content,
-        created_at,
-        user_id,
-        profiles (
-          username
-        )
-      `)
+      .select('id, content, created_at, user_id')
       .order('created_at', { ascending: false })
 
-    if (error) {
-      console.error('Erro ao buscar feed:', error.message)
-    } else {
-      setPosts(data || [])
+    if (postsError) {
+      console.error('Erro ao buscar feed:', postsError.message)
+      return
     }
+
+    if (!postsData || postsData.length === 0) {
+      setPosts([])
+      return
+    }
+
+    // Buscamos os perfis para tentar mapear os nomes correspondentes aos IDs
+    const { data: profilesData, error: profilesError } = await supabase
+      .from('profiles')
+      .select('id, username')
+
+    if (profilesError) {
+      console.error('Erro ao buscar perfis:', profilesError.message)
+      // Se der erro de segurança nos perfis, exibimos os posts com o plano B de qualquer forma
+      setPosts(postsData.map(post => ({ ...post, profiles: null })))
+      return
+    }
+
+    // Criamos um mapa de id -> username para associar de forma ultra veloz no JavaScript
+    const profilesMap = {}
+    profilesData?.forEach(p => {
+      profilesMap[p.id] = p.username
+    })
+
+    // Juntamos os dados das duas tabelas direto no Frontend de maneira segura
+    const formattedPosts = postsData.map(post => ({
+      ...post,
+      profiles: profilesMap[post.user_id] ? { username: profilesMap[post.user_id] } : null
+    }))
+
+    setPosts(formattedPosts)
   }
 
   const handleCreatePost = async (e) => {
@@ -265,7 +288,7 @@ export default function Dashboard({ session }) {
                 posts.map((post) => (
                   <div key={post.id} className="bg-gray-50 p-3 rounded-lg border border-gray-150">
                     <p className="text-[11px] font-semibold text-ufabc-verde truncate mb-1">
-                      {post.profiles?.username || 'Estudante Sem Nome'}
+                      {post.profiles?.username || 'Estudante UFABC'}
                     </p>
                     <p className="text-xs text-gray-700 whitespace-pre-wrap break-words">
                       {post.content}
