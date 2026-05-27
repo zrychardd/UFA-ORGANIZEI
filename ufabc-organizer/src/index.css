@@ -1,0 +1,6 @@
+@import "tailwindcss";
+
+@theme {
+  --color-ufabc-verde: #00674F;
+  --color-ufabc-dourado: #C8A923;
+}
