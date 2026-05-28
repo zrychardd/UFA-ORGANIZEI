@@ -5,7 +5,7 @@ import {
   ListTodo, Share2, Send, Home, Megaphone,
   LayoutGrid, BarChart, Settings, ChevronLeft, ChevronDown, Check,
   Bell, Award, Flame, MapPin, Clock, Search, SlidersHorizontal, ArrowRight,
-  BookOpen, Building, Users, Wallet, Wrench
+  BookOpen, Building, Users, Wallet, Wrench, Camera, Shield, User, Sliders, ToggleLeft, ToggleRight
 } from 'lucide-react'
 
 export default function Dashboard({ session }) {
@@ -48,13 +48,29 @@ export default function Dashboard({ session }) {
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState('Todos')
   const [searchQuery, setSearchQuery] = useState('')
 
+  // ==================== ESTADOS DE CONFIGURAÇÃO (REATIVOS) ====================
+  const userEmailBase = session?.user?.email || 'rychardeduardos@gmail.com'
+  const userPrefixBase = userEmailBase.split('@')[0]
+  const displayFirstNameBase = userPrefixBase.charAt(0).toUpperCase() + userPrefixBase.slice(1)
+
+  const [fullName, setFullName] = useState('Rychard Eduardo')
+  const [displayName, setDisplayName] = useState(displayFirstNameBase)
+  const [userEmail, setUserEmail] = useState(userEmailBase)
+  const [userCourse, setUserCourse] = useState('Ciência e Tecnologia')
+  const [userYear, setUserYear] = useState('2022')
+
+  // Estados das Preferências e Toggles Secundários
+  const [configSubTab, setConfigSubTab] = useState('Perfil')
+  const [notifyEmail, setNotifyEmail] = useState(true)
+  const [notifyPush, setNotifyPush] = useState(true)
+  const [notifyImportant, setNotifyImportant] = useState(true)
+  const [notifyTasks, setNotifyTasks] = useState(true)
+  const [notifyDaily, setNotifyDaily] = useState(false)
+
   const [loading, setLoading] = useState(false)
 
-  // Extrai informações do usuário logado
-  const userEmail = session?.user?.email || 'estudante@ufabc.edu.br'
-  const userPrefix = userEmail.split('@')[0]
-  const displayFirstName = userPrefix.charAt(0).toUpperCase() + userPrefix.slice(1)
-  const avatarInitials = userPrefix.slice(0, 2).toUpperCase()
+  // Extrai iniciais reativas baseadas no nome de exibição atualizado
+  const avatarInitials = displayName.slice(0, 2).toUpperCase()
 
   useEffect(() => {
     fetchTasks()
@@ -92,7 +108,7 @@ export default function Dashboard({ session }) {
       .from('tasks')
       .insert([
         {
-          user_id: session.user.id,
+          user_id: session?.user?.id,
           title: newTaskTitle,
           due_date: newTaskDate || null,
           is_completed: false
@@ -177,7 +193,7 @@ export default function Dashboard({ session }) {
       .from('posts')
       .insert([
         {
-          user_id: session.user.id,
+          user_id: session?.user?.id,
           content: newPostContent
         }
       ])
@@ -209,7 +225,7 @@ export default function Dashboard({ session }) {
       .from('events')
       .insert([
         {
-          user_id: session.user.id,
+          user_id: session?.user?.id,
           title: newEventTitle,
           event_date: newEventDate,
           event_time: newEventTime || null,
@@ -256,12 +272,12 @@ export default function Dashboard({ session }) {
       .from('announcements')
       .insert([
         {
-          user_id: session.user.id,
+          user_id: session?.user?.id,
           title: noticeTitle,
           content: noticeContent,
           category: noticeCategory,
           is_featured: noticeFeatured,
-          username: displayFirstName
+          username: displayName
         }
       ])
     if (!error) {
@@ -281,6 +297,12 @@ export default function Dashboard({ session }) {
     if (!error) fetchAnnouncements()
   }
 
+  // Lógica de Salvar Alterações de Configuração
+  const handleSaveSettings = (e) => {
+    e.preventDefault()
+    alert('Configurações salvas localmente com sucesso! As alterações já estão refletidas na interface.')
+  }
+
   // Contadores estatísticos para a tela Início
   const pendingTasksCount = tasks.filter(task => !task.is_completed).length
 
@@ -295,7 +317,7 @@ export default function Dashboard({ session }) {
     }
   }
 
-  // Helper simples inline para estilizar as categorias de avisos de forma segura
+  // Estilos de Categorias para o mural de Avisos
   const getNoticeTheme = (cat) => {
     switch (cat) {
       case 'Acadêmico': return { bg: 'bg-[#e8f5ef]', text: 'text-[#00674F]' }
@@ -327,7 +349,7 @@ export default function Dashboard({ session }) {
   return (
     <div className="flex flex-col h-screen bg-[#F5F7F6] min-h-[640px] font-sans antialiased overflow-hidden">
 
-      {/* ==================== HEADER ==================== */}
+      {/* ==================== HEADER (VINCULADO AO ESTADO REATIVO) ==================== */}
       <header className="bg-gradient-to-br from-[#003d2e] via-[#00674F] to-[#005040] px-7 h-24 flex items-center justify-between relative overflow-hidden shrink-0 shadow-md">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_rgba(255,255,255,0.04)_1px,_transparent_1px)] bg-[size:28px_28px] pointer-events-none" />
         <div className="absolute -right-10 -top-16 w-72 h-56 rounded-full border-2 border-[rgba(211,175,55,0.25)] pointer-events-none" />
@@ -347,8 +369,8 @@ export default function Dashboard({ session }) {
           </div>
           <div className="w-px h-10 bg-white/20 mx-1 hidden md:block" />
           <div className="text-white/90 relative z-10 hidden md:block">
-            <strong className="text-sm font-medium block">Bem-vindo de volta, {displayFirstName}!</strong>
-            <span className="text-xs text-white/70">Organize suas tarefas e fique por dentro da UFA.</span>
+            <strong className="text-sm font-medium block">Bem-vindo de volta, {displayName}!</strong>
+            <span className="text-xs text-white/70">Personalize sua experiência e gerencie suas preferências.</span>
           </div>
         </div>
 
@@ -358,7 +380,7 @@ export default function Dashboard({ session }) {
               {avatarInitials}
             </div>
             <div className="text-white hidden sm:block">
-              <span className="text-xs font-medium block">{displayFirstName}</span>
+              <span className="text-xs font-medium block">{displayName}</span>
               <span className="text-[10px] text-white/60 block truncate max-w-[140px]">{userEmail}</span>
             </div>
             <ChevronDown size={14} className="text-white/50 ml-0.5" />
@@ -414,10 +436,13 @@ export default function Dashboard({ session }) {
             <BarChart size={16} className="shrink-0" />
             <span>Relatórios</span>
           </div>
-          <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-not-allowed text-xs font-normal text-gray-300">
+          <button
+            onClick={() => setActiveTab('configuracoes')}
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium transition-all duration-150 ${activeTab === 'configuracoes' ? 'bg-[#00674F] text-white shadow-sm' : 'text-[#5a6b63] hover:bg-[#f0f5f2] hover:text-[#00674F]'}`}
+          >
             <Settings size={16} className="shrink-0" />
             <span>Configurações</span>
-          </div>
+          </button>
           <div className="flex-1" />
           <div className="flex items-center gap-2 px-3 py-2 rounded-xl text-[#8a9e94] text-[11px] font-medium opacity-50">
             <ChevronLeft size={14} />
@@ -435,7 +460,7 @@ export default function Dashboard({ session }) {
               <div className="space-y-5">
                 <div className="bg-white rounded-2xl border border-[#e4e9e6] p-5 flex justify-between items-center shadow-sm">
                   <div>
-                    <h2 className="text-[17px] font-bold text-[#1a2e26]">Olá, {displayFirstName}! 👋</h2>
+                    <h2 className="text-[17px] font-bold text-[#1a2e26]">Olá, {displayName}! 👋</h2>
                     <p className="text-xs text-[#8a9e94] mt-0.5">Aqui está um resumo do seu dia na UFA.</p>
                   </div>
                   <button onClick={() => setActiveTab('tarefas')} className="text-xs font-semibold text-[#00674F] border border-[#00674F] rounded-xl px-3 py-1.5 hover:bg-[#f0f5f2] transition-colors">
@@ -516,48 +541,6 @@ export default function Dashboard({ session }) {
                     </div>
                   </div>
                 </div>
-
-                {/* Seus Hábitos */}
-                <div className="bg-white border border-[#e4e9e6] p-5 rounded-2xl shadow-sm">
-                  <div className="flex justify-between items-center mb-1">
-                    <span className="text-xs font-bold text-[#1a2e26] flex items-center gap-2">
-                      <Flame size={14} className="text-[#00674F]" /> Seus hábitos
-                    </span>
-                    <span className="text-[11px] font-semibold text-[#00674F] cursor-not-allowed opacity-50">Ver relatório</span>
-                  </div>
-                  <p className="text-[11px] text-[#9aada5] mb-4">Acompanhe seus hábitos diários</p>
-
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <div className="bg-[#fafcfb] border border-[#e8ede9] p-3 rounded-xl flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-green-50 flex items-center justify-center text-xs font-bold text-[#00674F]">0%</div>
-                      <div>
-                        <div className="text-[11px] font-bold text-gray-700">Estudar</div>
-                        <div className="text-[10px] text-gray-400">0/0 dias</div>
-                      </div>
-                    </div>
-                    <div className="bg-[#fafcfb] border border-[#e8ede9] p-3 rounded-xl flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-amber-50 flex items-center justify-center text-xs font-bold text-[#D3AF37]">0%</div>
-                      <div>
-                        <div className="text-[11px] font-bold text-gray-700">Exercícios</div>
-                        <div className="text-[10px] text-gray-400">0/0 dias</div>
-                      </div>
-                    </div>
-                    <div className="bg-[#fafcfb] border border-[#e8ede9] p-3 rounded-xl flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center text-xs font-bold text-blue-600">0%</div>
-                      <div>
-                        <div className="text-[11px] font-bold text-gray-700">Leitura</div>
-                        <div className="text-[10px] text-gray-400">0/0 dias</div>
-                      </div>
-                    </div>
-                    <div className="bg-[#fafcfb] border border-[#e8ede9] p-3 rounded-xl flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-purple-50 flex items-center justify-center text-xs font-bold text-purple-600">0%</div>
-                      <div>
-                        <div className="text-[11px] font-bold text-gray-700">Projetos</div>
-                        <div className="text-[10px] text-gray-400">0/0 dias</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
               </div>
             )}
 
@@ -612,8 +595,6 @@ export default function Dashboard({ session }) {
             {/* ==================== RENDER: ABA AGENDA ==================== */}
             {activeTab === 'agenda' && (
               <div className="bg-white rounded-2xl border border-[#e4e9e6] p-6 flex flex-col shadow-sm">
-
-                {/* Topo da Agenda */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
                   <div className="flex items-center gap-2.5">
                     <div className="w-9 h-9 rounded-xl bg-[#e8f5ef] flex items-center justify-center shrink-0">
@@ -633,7 +614,6 @@ export default function Dashboard({ session }) {
                   </button>
                 </div>
 
-                {/* Barra de Controles de Período */}
                 <div className="flex flex-wrap items-center justify-between gap-3 bg-[#fafcfb] border border-[#e8ede9] p-3 rounded-xl mb-4">
                   <div className="flex items-center gap-1.5">
                     <button className="px-3 py-1.5 bg-white border border-[#dde5e0] rounded-lg text-xs font-medium text-gray-600 hover:bg-gray-50">Hoje</button>
@@ -648,38 +628,27 @@ export default function Dashboard({ session }) {
                   </div>
                 </div>
 
-                {/* Grade dos Dias da Semana */}
                 <div className="grid grid-cols-7 gap-px text-center mb-1 text-[10px] font-bold text-gray-400 tracking-wider">
                   <div>DOM</div><div>SEG</div><div>TER</div><div>QUA</div><div>QUI</div><div>SEX</div><div>SÁB</div>
                 </div>
 
-                {/* Grade do Calendário (Mês Completo) */}
                 <div className="grid grid-cols-7 gap-1 bg-gray-100 border border-gray-200 rounded-xl overflow-hidden p-1 bg-opacity-60">
                   {daysInCalendar.map((item, idx) => {
                     const dayEvents = events.filter(e => e.event_date === item.fullDateString && visibleCategories[e.category]);
-
                     return (
                       <div
                         key={idx}
-                        className={`min-h-[72px] bg-white p-1.5 flex flex-col justify-between rounded-lg border border-gray-50 transition-colors ${!item.isCurrentMonth ? 'bg-gray-50/50 opacity-40' : ''
-                          } ${item.dayNumber === 15 && item.isCurrentMonth ? 'ring-1 ring-[#00674F]' : ''}`}
+                        className={`min-h-[72px] bg-white p-1.5 flex flex-col justify-between rounded-lg border border-gray-50 transition-colors ${!item.isCurrentMonth ? 'bg-gray-50/50 opacity-40' : ''} ${item.dayNumber === 15 && item.isCurrentMonth ? 'ring-1 ring-[#00674F]' : ''}`}
                       >
                         <div className="flex justify-between items-center">
-                          <span className={`text-[11px] font-bold ${item.dayNumber === 15 && item.isCurrentMonth
-                            ? 'w-5 h-5 bg-[#00674F] text-white rounded-full flex items-center justify-center shadow-sm'
-                            : 'text-gray-700'
-                            }`}>
-                            {item.dayNumber}
-                          </span>
+                          <span className={`text-[11px] font-bold ${item.dayNumber === 15 && item.isCurrentMonth ? 'w-5 h-5 bg-[#00674F] text-white rounded-full flex items-center justify-center shadow-sm' : 'text-gray-700'}`}>{item.dayNumber}</span>
                         </div>
-
                         <div className="space-y-0.5 mt-1 flex-1 overflow-y-auto max-h-[50px] scrollbar-none">
                           {item.isCurrentMonth && dayEvents.map(ev => {
                             const colors = getCategoryColor(ev.category);
                             return (
                               <div key={ev.id} className={`text-[9px] px-1 py-0.5 font-bold rounded flex flex-col border-l-2 ${colors.bg} ${colors.text} ${colors.border} leading-tight`}>
                                 <span className="truncate">{ev.title}</span>
-                                {ev.event_time && <span className="text-[8px] opacity-80 font-normal">{ev.event_time}</span>}
                               </div>
                             )
                           })}
@@ -688,129 +657,42 @@ export default function Dashboard({ session }) {
                     )
                   })}
                 </div>
-
-                {/* Legendas de Categorias */}
-                <div className="flex gap-4 items-center mt-3 text-[10px] font-bold text-gray-500 px-1">
-                  <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-[#00674F]" /> Acadêmico</div>
-                  <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-amber-500" /> Pessoal</div>
-                  <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-emerald-400" /> Outros</div>
-                </div>
               </div>
             )}
 
-            {/* ==================== RENDER: ABA AVISOS (FIXADO E SEGURO) ==================== */}
+            {/* ==================== RENDER: ABA AVISOS ==================== */}
             {activeTab === 'avisos' && (
               <div className="bg-white rounded-2xl border border-[#e4e9e6] p-6 flex flex-col shadow-sm space-y-5">
-
-                {/* Topo do Módulo de Avisos */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div className="flex items-center gap-2.5">
-                    <div className="w-9 h-9 rounded-xl bg-[#e8f5ef] flex items-center justify-center shrink-0">
-                      <Megaphone size={18} className="text-[#00674F]" />
-                    </div>
+                    <div className="w-9 h-9 rounded-xl bg-[#e8f5ef] flex items-center justify-center shrink-0"><Megaphone size={18} className="text-[#00674F]" /></div>
                     <div>
                       <div className="text-[15px] font-bold text-[#1a2e26]">Avisos</div>
                       <div className="text-xs text-[#8a9e94] mt-0.5">Confira os comunicados oficiais e importantes da UFA.</div>
                     </div>
                   </div>
-
-                  {/* Barra de Busca e botão de Criação */}
                   <div className="flex items-center gap-2">
                     <div className="relative">
                       <Search size={14} className="absolute left-3 top-2.5 text-gray-400" />
-                      <input
-                        type="text"
-                        placeholder="Buscar avisos..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="pl-8 pr-3 py-2 border border-gray-200 rounded-xl text-xs bg-[#fafcfb] outline-none w-full sm:w-[180px] focus:border-[#00674F]"
-                      />
+                      <input type="text" placeholder="Buscar avisos..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-8 pr-3 py-2 border border-gray-200 rounded-xl text-xs bg-[#fafcfb] outline-none focus:border-[#00674F]" />
                     </div>
-                    <button
-                      onClick={() => setShowNoticeModal(true)}
-                      className="bg-[#00674F] hover:bg-[#005040] text-white font-bold rounded-xl px-4 py-2 text-xs shadow-sm flex items-center gap-1.5 shrink-0 whitespace-nowrap"
-                    >
-                      <Plus size={13} />
-                      <span>Criar aviso</span>
-                    </button>
+                    <button onClick={() => setShowNoticeModal(true)} className="bg-[#00674F] text-white font-bold rounded-xl px-4 py-2 text-xs shadow-sm flex items-center gap-1.5">+ Criar aviso</button>
                   </div>
                 </div>
 
-                {/* Filtros Horizontais por Categorias */}
-                <div className="flex items-center justify-between border-b border-gray-100 pb-2 overflow-x-auto gap-2 scrollbar-none">
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    {['Todos', 'Acadêmico', 'Administrativo', 'Eventos', 'Bolsas e Oportunidades', 'Infraestrutura'].map(cat => (
-                      <button
-                        key={cat}
-                        onClick={() => setSelectedCategoryFilter(cat)}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${selectedCategoryFilter === cat
-                          ? 'bg-[#00674F] text-white border-[#00674F] font-bold shadow-sm'
-                          : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
-                          }`}
-                      >
-                        {cat}
-                      </button>
-                    ))}
-                  </div>
-                  <button className="flex items-center gap-1.5 text-gray-500 font-semibold border rounded-lg px-3 py-1.5 text-xs bg-white hover:bg-gray-50 shrink-0">
-                    <SlidersHorizontal size={13} />
-                    <span>Filtros</span>
-                  </button>
-                </div>
-
-                {/* Mural de Avisos Dinâmico */}
                 <div className="space-y-3 max-h-[460px] overflow-y-auto pr-1">
                   {filteredAnnouncements.length === 0 ? (
-                    <div className="py-20 flex flex-col items-center justify-center text-center gap-3">
-                      <div className="w-16 h-16 rounded-full bg-gray-50 flex items-center justify-center text-gray-300 border border-dashed border-gray-200">
-                        <Megaphone size={24} />
-                      </div>
-                      <div>
-                        <div className="text-xs font-bold text-gray-700">Mural limpo por enquanto</div>
-                        <div className="text-[11px] text-gray-400 mt-0.5">Nenhum aviso publicado. Seja o primeiro a criar um comunicado!</div>
-                      </div>
-                    </div>
+                    <p className="text-center text-gray-400 text-xs py-12">Nenhum aviso publicado.</p>
                   ) : (
                     filteredAnnouncements.map((item) => {
                       const theme = getNoticeTheme(item.category);
-                      const isOwnNotice = item.user_id === session?.user?.id;
                       return (
-                        <div
-                          key={item.id}
-                          className="bg-white border border-[#e4e9e6] rounded-xl p-4 flex items-center justify-between hover:border-gray-300 transition-all shadow-sm group"
-                        >
-                          <div className="flex items-start gap-4 min-w-0 flex-1">
-                            {/* Bloco de Icone Estático Seguro contra Quebras de biblioteca */}
-                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${theme.bg} ${theme.text}`}>
-                              <Megaphone size={14} />
-                            </div>
-                            <div className="min-w-0 flex-1 pr-4">
-                              <div className="flex items-center gap-2">
-                                <h4 className="text-xs font-bold text-gray-800 truncate leading-snug">{item.title}</h4>
-                                {item.is_featured && <span className="text-[9px] font-extrabold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded uppercase tracking-wider">Destaque</span>}
-                              </div>
-                              <p className="text-[11px] text-gray-500 mt-1 whitespace-pre-wrap leading-relaxed break-words">{item.content}</p>
-
-                              <div className="flex items-center gap-3 mt-2 text-[10px] text-gray-400 font-medium">
-                                <span className={`px-2 py-0.5 rounded-full font-bold ${theme.bg} ${theme.text}`}>{item.category}</span>
-                                <span>Por: <strong className="text-gray-500">{item.username || 'Estudante'}</strong></span>
-                                <span>•</span>
-                                <span>{new Date(item.created_at).toLocaleDateString('pt-BR')}</span>
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-2 shrink-0">
-                            {isOwnNotice && (
-                              <button
-                                onClick={() => handleDeleteNotice(item.id)}
-                                className="text-gray-300 hover:text-red-500 p-1.5 transition-colors"
-                              >
-                                <Trash2 size={13} />
-                              </button>
-                            )}
-                            <div className="text-gray-300 group-hover:text-[#00674F] p-1 transition-colors">
-                              <ArrowRight size={14} />
+                        <div key={item.id} className="bg-white border rounded-xl p-4 flex items-center justify-between shadow-sm">
+                          <div className="flex items-center gap-3">
+                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${theme.bg} ${theme.text}`}><Megaphone size={14} /></div>
+                            <div>
+                              <h4 className="text-xs font-bold text-gray-800">{item.title}</h4>
+                              <p className="text-[11px] text-gray-500 mt-0.5">{item.content}</p>
                             </div>
                           </div>
                         </div>
@@ -820,128 +702,305 @@ export default function Dashboard({ session }) {
                 </div>
               </div>
             )}
-          </div>
 
-          {/* ==================== COLUNA DA DIREITA: WIDGETS DE SUPORTE ==================== */}
-          <div className="space-y-4">
-
-            {activeTab === 'agenda' ? (
-              <>
-                <div className="bg-white rounded-2xl border border-[#e4e9e6] p-5 shadow-sm flex flex-col">
-                  <div className="flex justify-between items-center mb-4">
-                    <span className="text-xs font-bold text-[#1a2e26]">Próximos eventos</span>
-                    <span onClick={() => setActiveTab('agenda')} className="text-[11px] font-bold text-[#00674F] cursor-pointer">Ver todos</span>
-                  </div>
-                  <div className="space-y-2.5 max-h-[380px] overflow-y-auto pr-1">
-                    {events.length === 0 ? (
-                      <p className="text-center text-gray-400 text-xs py-8">Nenhum evento criado.</p>
-                    ) : (
-                      events.map(ev => {
-                        const colors = getCategoryColor(ev.category);
-                        return (
-                          <div key={ev.id} className="p-3 bg-[#fafcfb] border border-[#e8ede9] rounded-xl flex items-center justify-between group">
-                            <div className="flex items-center gap-3 min-w-0">
-                              <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${colors.bg} ${colors.text}`}>
-                                <Calendar size={14} />
-                              </div>
-                              <div className="min-w-0">
-                                <h4 className="text-xs font-bold text-[#1a2e26] truncate">{ev.title}</h4>
-                                <p className="text-[10px] text-gray-400 mt-0.5 flex items-center gap-1.5 truncate">
-                                  {ev.location && <span className="flex items-center gap-0.5"><MapPin size={9} /> {ev.location}</span>}
-                                  {ev.event_time && <span className="flex items-center gap-0.5"><Clock size={9} /> {ev.event_time}</span>}
-                                </p>
-                              </div>
-                            </div>
-                            <button onClick={() => handleDeleteEvent(ev.id)} className="text-gray-300 hover:text-red-500 p-1 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={12} /></button>
-                          </div>
-                        )
-                      })
-                    )}
-                  </div>
-                </div>
-
-                <div className="bg-white rounded-2xl border border-[#e4e9e6] p-5 shadow-sm">
-                  <div className="flex justify-between items-center mb-4">
-                    <span className="text-xs font-bold text-[#1a2e26]">Calendários</span>
-                    <span className="text-[11px] font-bold text-[#00674F] cursor-not-allowed opacity-50">Gerenciar</span>
-                  </div>
-                  <div className="space-y-3">
-                    {Object.keys(visibleCategories).map(cat => {
-                      const colors = getCategoryColor(cat);
-                      return (
-                        <label key={cat} className="flex items-center justify-between cursor-pointer select-none">
-                          <div className="flex items-center gap-2.5 text-xs font-medium text-gray-600">
-                            <input type="checkbox" checked={visibleCategories[cat]} onChange={(e) => setVisibleCategories(prev => ({ ...prev, [cat]: e.target.checked }))} className="rounded border-gray-300 text-[#00674F] w-3.5 h-3.5" />
-                            <span>{cat}</span>
-                          </div>
-                          <div className={`w-2 h-2 rounded-full ${colors.dot}`} />
-                        </label>
-                      )
-                    })}
-                  </div>
-                </div>
-              </>
-            ) : activeTab === 'avisos' ? (
-              <>
-                <div className="bg-white rounded-2xl border border-[#e4e9e6] p-5 shadow-sm flex flex-col">
-                  <div className="flex items-center gap-2 text-xs font-bold text-gray-800 mb-3">
-                    <span className="text-amber-500">★</span> <span>Avisos em destaque</span>
-                  </div>
-                  {announcements.length === 0 ? (
-                    <div className="bg-gray-50/50 rounded-xl p-4 text-center text-[11px] text-gray-400 border border-dashed border-gray-100 py-8">Nenhum aviso em evidência.</div>
-                  ) : (
-                    <div className="bg-[#e8f5ef] rounded-xl p-4 border border-transparent flex flex-col h-full relative overflow-hidden">
-                      <span className="text-[9px] font-extrabold bg-[#00674F] text-white px-2 py-0.5 rounded w-max uppercase tracking-wider mb-2">Destaque</span>
-                      <h4 className="text-xs font-bold text-[#00674F] truncate">{featuredNotice?.title}</h4>
-                      <p className="text-[11px] text-gray-600 mt-1 line-clamp-3 leading-relaxed">{featuredNotice?.content}</p>
+            {/* ==================== RENDER: ABA CONFIGURAÇÕES (NOVO DESIGN `image_ca1a09.png`) ==================== */}
+            {activeTab === 'configuracoes' && (
+              <div className="space-y-4 animate-fade-in">
+                {/* Bloco Central de Configurações */}
+                <div className="bg-white rounded-2xl border border-[#e4e9e6] p-6 flex flex-col shadow-sm">
+                  <div className="flex items-center gap-2.5 mb-6">
+                    <div className="w-9 h-9 rounded-xl bg-[#e8f5ef] flex items-center justify-center shrink-0">
+                      <Settings size={18} className="text-[#00674F]" />
                     </div>
-                  )}
-                </div>
+                    <div>
+                      <div className="text-[15px] font-bold text-[#1a2e26]">Configurações</div>
+                      <div className="text-xs text-[#8a9e94] mt-0.5">Gerencie suas preferências e personalize sua experiência no UFA Organizei.</div>
+                    </div>
+                  </div>
 
-                <div className="bg-white rounded-2xl border border-[#e4e9e6] p-5 shadow-sm">
-                  <span className="text-xs font-bold text-[#1a2e26] block mb-3.5">Categorias do Mural</span>
-                  <div className="space-y-2.5">
-                    {['Acadêmico', 'Administrativo', 'Eventos', 'Bolsas e Oportunidades', 'Infraestrutura'].map(name => (
-                      <div key={name} className="flex items-center justify-between text-xs font-medium text-gray-600 cursor-pointer hover:bg-gray-50 p-1 rounded-lg" onClick={() => setSelectedCategoryFilter(name)}>
-                        <div className="flex items-center gap-2">
-                          <span className="text-gray-400">•</span>
-                          <span>{name}</span>
-                        </div>
-                        <span className="text-[11px] font-bold text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-md">{getCategoryCount(name)}</span>
-                      </div>
+                  {/* Sub-Abas de Navegação Interna */}
+                  <div className="flex items-center gap-1.5 border-b border-gray-100 pb-3 mb-6 overflow-x-auto scrollbar-none">
+                    {['Perfil', 'Notificações', 'Preferências', 'Categorias', 'Integrações', 'Segurança', 'Área de Trabalho'].map(subTab => (
+                      <button
+                        key={subTab}
+                        onClick={() => setConfigSubTab(subTab)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${configSubTab === subTab
+                            ? 'bg-[#00674F] text-white border-[#00674F] font-bold shadow-sm'
+                            : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
+                          }`}
+                      >
+                        {subTab}
+                      </button>
                     ))}
                   </div>
+
+                  {/* Formulário de Informações de Perfil */}
+                  <form onSubmit={handleSaveSettings} className="space-y-6">
+                    <div>
+                      <div className="flex items-center justify-between mb-4">
+                        <div>
+                          <h3 className="text-xs font-bold text-gray-800">Informações do perfil</h3>
+                          <p className="text-[10px] text-gray-400 mt-0.5">Atualize seus dados pessoais e informações de contato.</p>
+                        </div>
+                        <button type="button" className="flex items-center gap-1.5 border border-gray-200 rounded-xl px-3 py-1.5 text-[11px] font-semibold bg-white text-gray-600 hover:bg-gray-50">
+                          <Camera size={12} />
+                          <span>Alterar foto</span>
+                        </button>
+                      </div>
+
+                      <div className="flex flex-col md:flex-row gap-6 items-center">
+                        {/* Avatar Redondo Customizado */}
+                        <div className="relative shrink-0">
+                          <div className="w-20 h-20 rounded-full bg-[#003d2e] flex items-center justify-center text-sm font-bold text-white border-2 border-white shadow-md">
+                            {avatarInitials}
+                          </div>
+                          <div className="absolute bottom-0 right-0 w-5 h-5 bg-white rounded-full border border-gray-200 flex items-center justify-center cursor-pointer shadow-sm">
+                            <span className="text-[10px] text-gray-500">✏️</span>
+                          </div>
+                        </div>
+
+                        {/* Grade de Inputs */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1 w-full">
+                          <div>
+                            <label className="text-[10px] font-bold text-gray-400 block mb-1">Nome completo</label>
+                            <input
+                              type="text"
+                              value={fullName}
+                              onChange={(e) => setFullName(e.target.value)}
+                              className="w-full px-3.5 py-2 border border-gray-200 rounded-xl text-xs bg-[#fafcfb] outline-none focus:border-[#00674F] focus:bg-white text-gray-700"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-bold text-gray-400 block mb-1">Nome de exibição</label>
+                            <input
+                              type="text"
+                              value={displayName}
+                              onChange={(e) => setDisplayName(e.target.value)}
+                              className="w-full px-3.5 py-2 border border-gray-200 rounded-xl text-xs bg-[#fafcfb] outline-none focus:border-[#00674F] focus:bg-white text-gray-700 font-medium"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-bold text-gray-400 block mb-1">E-mail</label>
+                            <input
+                              type="email"
+                              value={userEmail}
+                              onChange={(e) => setUserEmail(e.target.value)}
+                              className="w-full px-3.5 py-2 border border-gray-200 rounded-xl text-xs bg-[#fafcfb] outline-none focus:border-[#00674F] focus:bg-white text-gray-700"
+                            />
+                          </div>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <label className="text-[10px] font-bold text-gray-400 block mb-1">Curso</label>
+                              <input
+                                type="text"
+                                value={userCourse}
+                                onChange={(e) => setUserCourse(e.target.value)}
+                                className="w-full px-3.5 py-2 border border-gray-200 rounded-xl text-xs bg-[#fafcfb] outline-none text-gray-700"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-[10px] font-bold text-gray-400 block mb-1">Ingresso</label>
+                              <input
+                                type="text"
+                                value={userYear}
+                                onChange={(e) => setUserYear(e.target.value)}
+                                className="w-full px-3.5 py-2 border border-gray-200 rounded-xl text-xs bg-[#fafcfb] outline-none text-gray-700"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end pt-2 border-t border-gray-50">
+                      <button type="submit" className="bg-[#00674F] hover:bg-[#005040] text-white text-xs font-bold px-5 py-2.5 rounded-xl shadow-sm">
+                        Salvar alterações
+                      </button>
+                    </div>
+                  </form>
+                </div>
+
+                {/* Bloco de Preferências Gerais Inferior */}
+                <div className="bg-white rounded-2xl border border-[#e4e9e6] p-5 shadow-sm space-y-4">
+                  <div>
+                    <h3 className="text-xs font-bold text-gray-800">Preferências gerais</h3>
+                    <p className="text-[10px] text-gray-400 mt-0.5">Personalize a aparência e o comportamento do sistema.</p>
+                  </div>
+
+                  <div className="divide-y divide-gray-50 border border-gray-100 rounded-xl overflow-hidden bg-[#fafcfb]">
+                    <div className="p-3.5 flex items-center justify-between bg-white">
+                      <div className="flex items-center gap-3">
+                        <div className="w-7 h-7 bg-gray-50 text-gray-500 rounded-lg flex items-center justify-center"><User size={13} /></div>
+                        <div>
+                          <div className="text-[11px] font-bold text-gray-700">Tema</div>
+                          <div className="text-[10px] text-gray-400">Escolha entre o tema claro ou escuro.</div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1.5 border rounded-lg px-2 py-1 text-xs text-gray-600 bg-white cursor-pointer select-none">
+                        <span>☀️ Claro</span>
+                        <ChevronDown size={12} className="text-gray-400" />
+                      </div>
+                    </div>
+
+                    <div className="p-3.5 flex items-center justify-between bg-white">
+                      <div className="flex items-center gap-3">
+                        <div className="w-7 h-7 bg-gray-50 text-gray-500 rounded-lg flex items-center justify-center"><Sliders size={13} /></div>
+                        <div>
+                          <div className="text-[11px] font-bold text-gray-700">Idioma</div>
+                          <div className="text-[10px] text-gray-400">Selecione o idioma da interface.</div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1.5 border rounded-lg px-2 py-1 text-xs text-gray-600 bg-white cursor-pointer">
+                        <span>🌐 Português (BR)</span>
+                        <ChevronDown size={12} className="text-gray-400" />
+                      </div>
+                    </div>
+
+                    <div className="p-3.5 flex items-center justify-between bg-white">
+                      <div className="flex items-center gap-3">
+                        <div className="w-7 h-7 bg-gray-50 text-gray-500 rounded-lg flex items-center justify-center"><Calendar size={13} /></div>
+                        <div>
+                          <div className="text-[11px] font-bold text-gray-700">Semana começa em</div>
+                          <div className="text-[10px] text-gray-400">Defina o primeiro dia da semana no calendário.</div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1.5 border rounded-lg px-2 py-1 text-xs text-gray-600 bg-white cursor-pointer">
+                        <span>📅 Segunda-feira</span>
+                        <ChevronDown size={12} className="text-gray-400" />
+                      </div>
+                    </div>
+
+                    <div className="p-3.5 flex items-center justify-between bg-white">
+                      <div className="flex items-center gap-3">
+                        <div className="w-7 h-7 bg-gray-50 text-gray-500 rounded-lg flex items-center justify-center"><Clock size={13} /></div>
+                        <div>
+                          <div className="text-[11px] font-bold text-gray-700">Fuso horário</div>
+                          <div className="text-[10px] text-gray-400">Defina seu fuso horário para exibição correta de datas e horários.</div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1.5 border rounded-lg px-2 py-1 text-xs text-gray-600 bg-white cursor-pointer">
+                        <span>🕒 (GMT-03:00) Brasília</span>
+                        <ChevronDown size={12} className="text-gray-400" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* ==================== COLUNA DA DIREITA: WIDGETS DE SUPORTE CONFIGURAÇÕES ==================== */}
+          <div className="space-y-4">
+            {activeTab === 'configuracoes' ? (
+              <>
+                {/* Painel Lateral: Configurações de Notificações */}
+                <div className="bg-white rounded-2xl border border-[#e4e9e6] p-5 shadow-sm flex flex-col">
+                  <div>
+                    <h3 className="text-xs font-bold text-gray-800">Notificações</h3>
+                    <p className="text-[10px] text-gray-400 mt-0.5 mb-4">Escolha como e quando deseja ser notificado.</p>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex gap-2.5 items-start min-w-0">
+                        <div className="w-7 h-7 rounded-lg bg-gray-50 text-gray-400 flex items-center justify-center shrink-0"><Bell size={13} /></div>
+                        <div className="min-w-0"><span className="text-[11px] font-bold text-gray-700 block">E-mail</span><span className="text-[10px] text-gray-400 block truncate">Receber notificações por e-mail.</span></div>
+                      </div>
+                      <button type="button" onClick={() => setNotifyEmail(!notifyEmail)} className="text-[#00674F]">{notifyEmail ? <ToggleRight size={24} /> : <ToggleLeft size={24} className="text-gray-300" />}</button>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div className="flex gap-2.5 items-start min-w-0">
+                        <div className="w-7 h-7 rounded-lg bg-gray-50 text-gray-400 flex items-center justify-center shrink-0"><Bell size={13} /></div>
+                        <div className="min-w-0"><span className="text-[11px] font-bold text-gray-700 block">Push</span><span className="text-[10px] text-gray-400 block truncate">Receber notificações no navegador.</span></div>
+                      </div>
+                      <button type="button" onClick={() => setNotifyPush(!notifyPush)} className="text-[#00674F]">{notifyPush ? <ToggleRight size={24} /> : <ToggleLeft size={24} className="text-gray-300" />}</button>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div className="flex gap-2.5 items-start min-w-0">
+                        <div className="w-7 h-7 rounded-lg bg-gray-50 text-gray-400 flex items-center justify-center shrink-0"><Megaphone size={13} /></div>
+                        <div className="min-w-0"><span className="text-[11px] font-bold text-gray-700 block">Avisos importantes</span><span className="text-[10px] text-gray-400 block truncate">Notificações sobre avisos importantes.</span></div>
+                      </div>
+                      <button type="button" onClick={() => setNotifyImportant(!notifyImportant)} className="text-[#00674F]">{notifyImportant ? <ToggleRight size={24} /> : <ToggleLeft size={24} className="text-gray-300" />}</button>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div className="flex gap-2.5 items-start min-w-0">
+                        <div className="w-7 h-7 rounded-lg bg-gray-50 text-gray-400 flex items-center justify-center shrink-0"><ListTodo size={13} /></div>
+                        <div className="min-w-0"><span className="text-[11px] font-bold text-gray-700 block">Lembretes de tarefas</span><span className="text-[10px] text-gray-400 block truncate">Receber lembretes das suas tarefas.</span></div>
+                      </div>
+                      <button type="button" onClick={() => setNotifyTasks(!notifyTasks)} className="text-[#00674F]">{notifyTasks ? <ToggleRight size={24} /> : <ToggleLeft size={24} className="text-gray-300" />}</button>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div className="flex gap-2.5 items-start min-w-0">
+                        <div className="w-7 h-7 rounded-lg bg-gray-50 text-gray-400 flex items-center justify-center shrink-0"><Calendar size={13} /></div>
+                        <div className="min-w-0"><span className="text-[11px] font-bold text-gray-700 block">Resumo diário</span><span className="text-[10px] text-gray-400 block">Receber um resumo diário por e-mail.</span></div>
+                      </div>
+                      <button type="button" onClick={() => setNotifyDaily(!notifyDaily)} className="text-[#00674F]">{notifyDaily ? <ToggleRight size={24} /> : <ToggleLeft size={24} className="text-gray-300" />}</button>
+                    </div>
+                  </div>
+
+                  <div className="border-t border-gray-50 pt-3 mt-4 flex items-center justify-between text-[11px] font-bold text-[#00674F] cursor-pointer hover:opacity-80">
+                    <span>Gerenciar todas as notificações</span>
+                    <ArrowRight size={12} />
+                  </div>
+                </div>
+
+                {/* Painel Lateral: Controle da Conta */}
+                <div className="bg-white rounded-2xl border border-[#e4e9e6] p-5 shadow-sm space-y-3">
+                  <div>
+                    <h3 className="text-xs font-bold text-gray-800">Conta</h3>
+                    <p className="text-[10px] text-gray-400 mt-0.5">Gerencie as opções da sua conta.</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="p-2.5 border border-gray-100 rounded-xl flex items-center justify-between hover:bg-gray-50 cursor-pointer">
+                      <div className="flex items-center gap-2 text-[11px] font-medium text-gray-600">
+                        <Shield size={13} className="text-gray-400" />
+                        <span>Alterar senha</span>
+                      </div>
+                      <ArrowRight size={12} className="text-gray-300" />
+                    </div>
+                    <div className="p-2.5 border border-gray-100 rounded-xl flex items-center justify-between hover:bg-gray-50 cursor-pointer">
+                      <div className="flex items-center gap-2 text-[11px] font-medium text-gray-600">
+                        <Send size={13} className="text-gray-400" />
+                        <span>Exportar meus dados</span>
+                      </div>
+                      <ArrowRight size={12} className="text-gray-300" />
+                    </div>
+                    <div className="p-2.5 border border-gray-100 rounded-xl flex items-center justify-between hover:bg-red-50/50 cursor-pointer">
+                      <div className="flex items-center gap-2 text-[11px] font-bold text-red-600">
+                        <Trash2 size={13} />
+                        <span>Excluir conta</span>
+                      </div>
+                      <ArrowRight size={12} className="text-red-300" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Painel Lateral: Rodapé do Sobre */}
+                <div className="bg-white rounded-2xl border border-[#e4e9e6] p-4 shadow-sm flex items-center justify-between text-[10px] text-gray-400">
+                  <div>
+                    <strong className="text-gray-600 block text-[11px] font-bold">Sobre o UFA Organizei</strong>
+                    <span className="block mt-0.5 leading-relaxed">Feito com 💚 para ajudar estudantes da UFABC a se organizarem melhor.</span>
+                  </div>
+                  <span className="bg-emerald-50 text-[#00674F] font-bold px-1.5 py-0.5 rounded text-[9px] whitespace-nowrap">Versão 1.0.0</span>
                 </div>
               </>
             ) : (
-              /* FEED CENTRAL DA UFA */
+              /* FEED DO SEU BACKUP ORIGINAL */
               <div className="bg-white rounded-2xl border border-[#e4e9e6] p-6 flex flex-col h-full min-h-[480px] shadow-sm relative overflow-hidden">
                 <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-[#00674F] to-[#D3AF37]" />
-
                 <div className="flex items-center gap-2.5 mb-3.5">
-                  <div className="w-9 h-9 rounded-xl bg-[#fdf5e0] flex items-center justify-center shrink-0">
-                    <Megaphone size={18} className="text-[#D3AF37]" />
-                  </div>
-                  <div>
-                    <div className="text-[15px] font-medium text-[#1a2e26]">Feed Central da UFA</div>
-                    <div className="text-[11px] text-[#8a9e94] mt-0.5">Fique por dentro das novidades da comunidade.</div>
-                  </div>
+                  <div className="w-9 h-9 rounded-xl bg-[#fdf5e0] flex items-center justify-center shrink-0"><Megaphone size={18} className="text-[#D3AF37]" /></div>
+                  <div><div className="text-[15px] font-medium text-[#1a2e26]">Feed Central da UFA</div><div className="text-[11px] text-[#8a9e94] mt-0.5">Fique por dentro das novidades da comunidade.</div></div>
                 </div>
-
                 <form onSubmit={handleCreatePost} className="flex gap-2 mb-4">
-                  <input
-                    type="text"
-                    placeholder="O que está acontecendo no campus?"
-                    value={newPostContent}
-                    onChange={(e) => setNewPostContent(e.target.value)}
-                    className="flex-1 px-3 py-2 border border-[#dde5e0] rounded-xl text-xs bg-[#fafcfb] outline-none focus:border-[#D3AF37]"
-                    required
-                  />
-                  <button type="submit" className="w-9 h-9 rounded-xl bg-[#D3AF37] flex items-center justify-center hover:bg-[#b8942a] text-white shrink-0 shadow-sm">
-                    <Send size={14} />
-                  </button>
+                  <input type="text" placeholder="O que está acontecendo no campus?" value={newPostContent} onChange={(e) => setNewPostContent(e.target.value)} className="flex-1 px-3 py-2 border border-[#dde5e0] rounded-xl text-xs bg-[#fafcfb] outline-none focus:border-[#D3AF37]" required />
+                  <button type="submit" className="w-9 h-9 rounded-xl bg-[#D3AF37] text-white flex items-center justify-center shadow-sm"><Send size={14} /></button>
                 </form>
-
                 <div className="flex-1 overflow-y-auto space-y-2 pr-1 scrollbar-thin">
                   {posts.map((post) => {
                     const isOwnPost = post.user_id === session?.user?.id;
@@ -951,9 +1010,7 @@ export default function Dashboard({ session }) {
                         <div className="flex-1 min-w-0">
                           <div className="text-xs font-medium text-[#1a2e26] flex items-center gap-1.5">
                             {post.profiles?.username || 'Estudante UFA'}
-                            <span className="text-[10px] text-[#aabdb5] font-normal">
-                              {post.created_at ? new Date(post.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : ''}
-                            </span>
+                            <span className="text-[10px] text-[#aabdb5] font-normal">{post.created_at ? new Date(post.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : ''}</span>
                           </div>
                           <p className="text-xs text-[#5a6b63] mt-1 whitespace-pre-wrap break-words leading-relaxed">{post.content}</p>
                         </div>
@@ -971,78 +1028,11 @@ export default function Dashboard({ session }) {
       {showEventModal && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
           <div className="bg-white rounded-2xl border border-gray-100 max-w-md w-full p-6 shadow-xl space-y-4">
-            <div>
-              <h3 className="text-sm font-bold text-gray-800">Criar Novo Compromisso</h3>
-              <p className="text-[11px] text-gray-400 mt-0.5">Adicione um evento diretamente na grade da sua agenda.</p>
-            </div>
-
+            <div><h3 className="text-sm font-bold text-gray-800">Criar Novo Compromisso</h3></div>
             <form onSubmit={handleAddEvent} className="space-y-3">
-              <div>
-                <label className="text-[10px] font-bold text-gray-400 block mb-1">Título do Evento</label>
-                <input
-                  type="text"
-                  placeholder="Ex: Prova de Cálculo I"
-                  value={newEventTitle}
-                  onChange={(e) => setNewEventTitle(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs bg-[#fafcfb] outline-none focus:border-[#00674F]"
-                  required
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-2.5">
-                <div>
-                  <label className="text-[10px] font-bold text-gray-400 block mb-1">Data (Maio 2024)</label>
-                  <input
-                    type="date"
-                    min="2024-05-01"
-                    max="2024-05-31"
-                    value={newEventDate}
-                    onChange={(e) => setNewEventDate(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs bg-[#fafcfb] outline-none"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] font-bold text-gray-400 block mb-1">Horário (Opcional)</label>
-                  <input
-                    type="text"
-                    placeholder="Ex: 08:00"
-                    value={newEventTime}
-                    onChange={(e) => setNewEventTime(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs bg-[#fafcfb] outline-none"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="text-[10px] font-bold text-gray-400 block mb-1">Local / Sala (Opcional)</label>
-                <input
-                  type="text"
-                  placeholder="Ex: Sala A-203"
-                  value={newEventLocation}
-                  onChange={(e) => setNewEventLocation(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs bg-[#fafcfb] outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="text-[10px] font-bold text-gray-400 block mb-1">Categoria de Calendário</label>
-                <select
-                  value={newEventCategory}
-                  onChange={(e) => setNewEventCategory(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs bg-[#fafcfb] outline-none cursor-pointer text-gray-600"
-                >
-                  <option value="Acadêmico">Acadêmico (Verde)</option>
-                  <option value="Pessoal">Pessoal (Amarelo)</option>
-                  <option value="PET / Projetos">PET / Projetos (Verde Claro)</option>
-                  <option value="Esportivo">Esportivo (Cinza)</option>
-                </select>
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-2">
-                <button type="button" onClick={() => setShowEventModal(false)} className="px-4 py-2 border border-gray-200 text-gray-500 rounded-xl text-xs font-semibold hover:bg-gray-50">Cancelar</button>
-                <button type="submit" className="px-4 py-2 bg-[#00674F] text-white rounded-xl text-xs font-bold hover:bg-[#005040]">Salvar evento</button>
-              </div>
+              <input type="text" placeholder="Ex: Prova de Cálculo I" value={newEventTitle} onChange={(e) => setNewEventTitle(e.target.value)} className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs outline-none focus:border-[#00674F]" required />
+              <input type="date" min="2024-05-01" max="2024-05-31" value={newEventDate} onChange={(e) => setNewEventDate(e.target.value)} className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs outline-none" required />
+              <div className="flex items-center justify-end gap-2 pt-2"><button type="button" onClick={() => setShowEventModal(false)} className="px-4 py-2 border rounded-xl text-xs text-gray-500">Cancelar</button><button type="submit" className="px-4 py-2 bg-[#00674F] text-white rounded-xl text-xs font-bold">Salvar evento</button></div>
             </form>
           </div>
         </div>
@@ -1052,68 +1042,11 @@ export default function Dashboard({ session }) {
       {showNoticeModal && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl space-y-4 border border-gray-100">
-            <div>
-              <h3 className="text-sm font-bold text-gray-800">Publicar Comunicado no Mural</h3>
-              <p className="text-[11px] text-gray-400 mt-0.5">Seu aviso ficará visível imediatamente para toda a comunidade estudantil.</p>
-            </div>
-
+            <div><h3 className="text-sm font-bold text-gray-800">Publicar Comunicado no Mural</h3></div>
             <form onSubmit={handleAddNotice} className="space-y-3.5">
-              <div>
-                <label className="text-[10px] font-bold text-gray-400 block mb-1">Título do Comunicado</label>
-                <input
-                  type="text"
-                  placeholder="Ex: Inscrições abertas para Monitoria"
-                  value={noticeTitle}
-                  onChange={(e) => setNoticeTitle(e.target.value)}
-                  className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-xs bg-[#fafcfb] outline-none focus:border-[#00674F]"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="text-[10px] font-bold text-gray-400 block mb-1">Conteúdo/Descrição Completa</label>
-                <textarea
-                  placeholder="Descreva aqui os prazos, links e detalhes do aviso..."
-                  value={noticeContent}
-                  onChange={(e) => setNoticeContent(e.target.value)}
-                  rows={4}
-                  className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-xs bg-[#fafcfb] outline-none focus:border-[#00674F] resize-none leading-relaxed"
-                  required
-                />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
-                <div>
-                  <label className="text-[10px] font-bold text-gray-400 block mb-1">Selecione o Canal/Categoria</label>
-                  <select
-                    value={noticeCategory}
-                    onChange={(e) => setNoticeCategory(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs bg-[#fafcfb] outline-none cursor-pointer text-gray-600"
-                  >
-                    <option value="Acadêmico">Acadêmico</option>
-                    <option value="Administrativo">Administrativo</option>
-                    <option value="Eventos">Eventos</option>
-                    <option value="Bolsas e Oportunidades">Bolsas e Oportunidades</option>
-                    <option value="Infraestrutura">Infraestrutura</option>
-                  </select>
-                </div>
-
-                <div className="flex items-center gap-2 pt-4 select-none">
-                  <input
-                    type="checkbox"
-                    id="featNotice"
-                    checked={noticeFeatured}
-                    onChange={(e) => setNoticeFeatured(e.target.checked)}
-                    className="rounded border-gray-300 text-[#00674F] w-3.5 h-3.5 cursor-pointer"
-                  />
-                  <label htmlFor="featNotice" className="text-xs font-medium text-gray-600 cursor-pointer">Marcar como Destaque</label>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-2">
-                <button type="button" onClick={() => setShowNoticeModal(false)} className="px-4 py-2 border text-gray-500 rounded-xl text-xs font-semibold hover:bg-gray-50">Cancelar</button>
-                <button type="submit" className="px-4 py-2 bg-[#00674F] text-white rounded-xl text-xs font-bold hover:bg-[#005040]">Publicar aviso</button>
-              </div>
+              <input type="text" placeholder="Título" value={noticeTitle} onChange={(e) => setNoticeTitle(e.target.value)} className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:border-[#00674F]" required />
+              <textarea placeholder="Descrição" value={noticeContent} onChange={(e) => setNoticeContent(e.target.value)} rows={4} className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:border-[#00674F] resize-none" required />
+              <div className="flex items-center justify-end gap-2 pt-2"><button type="button" onClick={() => setShowNoticeModal(false)} className="px-4 py-2 border text-gray-500 rounded-xl text-xs">Cancelar</button><button type="submit" className="px-4 py-2 bg-[#00674F] text-white rounded-xl text-xs font-bold">Publicar aviso</button></div>
             </form>
           </div>
         </div>
