@@ -173,7 +173,7 @@ export default function Dashboard({ session, isDark, toggleDark }) {
     const profilesMap = Object.fromEntries((profilesResult.data ?? []).map(p => [p.id, p.username]))
     setPosts((postsResult.data ?? []).map(post => ({
       ...post,
-      username: profilesMap[post.user_id] || 'Estudante UFABC'
+      username: profilesMap[post.user_id] || 'Estudante UFA'
     })))
   }
 
@@ -213,19 +213,19 @@ export default function Dashboard({ session, isDark, toggleDark }) {
           <div className="logo-area">
             <div className="logo-icon">
               <svg viewBox="0 0 30 30" fill="none">
-                <circle cx="10" cy="10" r="7" stroke="white" strokeWidth="1.8"/>
-                <circle cx="20" cy="10" r="7" stroke="#D3AF37" strokeWidth="1.8"/>
-                <circle cx="15" cy="19" r="7" stroke="white" strokeWidth="1.8" opacity="0.7"/>
+                <circle cx="10" cy="10" r="7" stroke="white" strokeWidth="1.8" />
+                <circle cx="20" cy="10" r="7" stroke="#D3AF37" strokeWidth="1.8" />
+                <circle cx="15" cy="19" r="7" stroke="white" strokeWidth="1.8" opacity="0.7" />
               </svg>
             </div>
             <div className="logo-text">
-              <h1>UFABC</h1>
+              <h1>UFA ORGANIZEI</h1>
               <span className="brand">Organizador</span>
             </div>
             <div className="logo-divider" />
             <div className="header-welcome">
               <strong>Bem-vindo de volta, {username}!</strong>
-              <span>Organize suas tarefas e fique por dentro da UFABC.</span>
+              <span>Organize suas tarefas e fique por dentro da UFA.</span>
             </div>
           </div>
 
@@ -339,7 +339,7 @@ export default function Dashboard({ session, isDark, toggleDark }) {
                       </div>
                       <button className="task-delete" onClick={() => deleteTask(task.id)}>
                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
+                          <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M10 11v6" /><path d="M14 11v6" /><path d="M9 6V4h6v2" />
                         </svg>
                       </button>
                     </div>
@@ -356,7 +356,7 @@ export default function Dashboard({ session, isDark, toggleDark }) {
                   <Megaphone size={18} />
                 </div>
                 <div>
-                  <div className="card-title">Feed Central da UFABC</div>
+                  <div className="card-title">Feed Central da UFA</div>
                   <div className="card-subtitle">Fique por dentro das novidades da comunidade.</div>
                 </div>
               </div>
