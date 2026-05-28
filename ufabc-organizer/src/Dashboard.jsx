@@ -478,60 +478,86 @@ export default function Dashboard({ session }) {
             )}
           </div>
 
-          {/* COLUNA DA DIREITA */}
-          <div className="space-y-4">
+          {/* ==================== COLUNA DA DIREITA (DESIGN PREMIUM FIEL AO ANEXO 2) ==================== */}
+          <div className="space-y-6">
             {activeTab === 'agenda' ? (
               <>
-                <div className="bg-white rounded-2xl border border-[#e4e9e6] p-5 shadow-sm flex flex-col">
-                  <div className="flex justify-between items-center mb-4">
-                    <span className="text-xs font-bold text-[#1a2e26]">Próximos eventos</span>
-                    <span className="text-[11px] font-bold text-[#00674F] cursor-pointer">Ver todos</span>
+                {/* Bloco Lateral: Próximos Eventos (Títulos Flutuantes e Cards Individuais) */}
+                <div className="flex flex-col">
+                  <div className="flex justify-between items-center mb-3 px-1">
+                    <span className="text-[15px] font-bold text-[#1a2e26]">Próximos eventos</span>
+                    <span className="text-[11px] font-bold text-[#00674F] cursor-pointer hover:underline">Ver todos</span>
                   </div>
-                  <div className="space-y-2.5 max-h-[320px] overflow-y-auto pr-1">
-                    {events.map(ev => {
-                      const style = getCategoryStyle(ev.category);
-                      return (
-                        <div key={ev.id} className="p-3 bg-[#fafcfb] border border-[#e8ede9] rounded-xl flex items-center justify-between group">
-                          <div className="flex items-center gap-3 min-w-0">
-                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${style.bg} ${style.text}`}>
-                              <Calendar size={14} />
+
+                  <div className="space-y-3 max-h-[350px] overflow-y-auto scrollbar-none pr-1 pb-2">
+                    {events.length === 0 ? (
+                      <p className="text-center text-gray-400 text-xs py-8">Nenhum evento criado.</p>
+                    ) : (
+                      events.map(ev => {
+                        const style = getCategoryStyle(ev.category);
+
+                        // Formatação de data mockada para o visual premium (ex: "03 Mai")
+                        const dateObj = new Date(ev.event_date);
+                        dateObj.setDate(dateObj.getDate() + 1); // Correção simples de timezone
+                        const month = dateObj.toLocaleString('pt-BR', { month: 'short' }).replace('.', '');
+                        const displayDate = `${String(dateObj.getDate()).padStart(2, '0')} ${month.charAt(0).toUpperCase() + month.slice(1)}`;
+
+                        return (
+                          <div key={ev.id} className="bg-white p-3.5 rounded-2xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-[#e8ede9] flex items-center justify-between group transition-all hover:shadow-md cursor-pointer relative overflow-hidden">
+                            <div className="flex items-center gap-3.5 min-w-0">
+                              <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${style.bg} ${style.text}`}>
+                                <Calendar size={18} />
+                              </div>
+                              <div className="min-w-0">
+                                <h4 className="text-[13px] font-bold text-[#1a2e26] truncate">{ev.title}</h4>
+                                <p className="text-[11px] text-gray-500 mt-0.5 truncate">
+                                  {ev.location ? ev.location : ev.category}
+                                </p>
+                              </div>
                             </div>
-                            <div className="min-w-0">
-                              <h4 className="text-xs font-bold text-[#1a2e26] truncate">{ev.title}</h4>
-                              <p className="text-[10px] text-gray-400 mt-0.5 flex items-center gap-1.5">
-                                {ev.location && <span className="flex items-center gap-0.5"><MapPin size={9} /> {ev.location}</span>}
-                                {ev.event_time && <span className="flex items-center gap-0.5"><Clock size={9} /> {ev.event_time}</span>}
-                              </p>
+
+                            <div className="flex flex-col items-end shrink-0 pl-3">
+                              <span className="text-[11px] font-bold text-gray-600">{displayDate}</span>
+                              {ev.event_time && <span className="text-[11px] text-gray-400 font-medium mt-0.5">{ev.event_time}</span>}
                             </div>
+
+                            {/* Botão de deletar escondido que aparece apenas no hover */}
+                            <button onClick={(e) => { e.stopPropagation(); handleDeleteEvent(ev.id); }} className="absolute right-2 top-1/2 -translate-y-1/2 bg-red-50 text-red-500 rounded-lg p-2 opacity-0 group-hover:opacity-100 transition-opacity shadow-sm border border-red-100">
+                              <Trash2 size={14} />
+                            </button>
                           </div>
-                          <button onClick={() => handleDeleteEvent(ev.id)} className="text-gray-300 hover:text-red-500 p-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Trash2 size={12} />
-                          </button>
-                        </div>
-                      )
-                    })}
+                        )
+                      })
+                    )}
                   </div>
                 </div>
 
-                <div className="bg-white rounded-2xl border border-[#e4e9e6] p-5 shadow-sm">
-                  <div className="flex justify-between items-center mb-4">
-                    <span className="text-xs font-bold text-[#1a2e26]">Calendários</span>
+                {/* Bloco Lateral: Calendários (Container Branco Único com Checkboxes Customizados) */}
+                <div className="flex flex-col mt-2">
+                  <div className="flex justify-between items-center mb-3 px-1">
+                    <span className="text-[15px] font-bold text-[#1a2e26]">Calendários</span>
+                    <span className="text-[11px] font-bold text-[#00674F] cursor-pointer hover:underline">Gerenciar</span>
                   </div>
-                  <div className="space-y-3">
+
+                  <div className="bg-white rounded-2xl border border-[#e8ede9] p-2.5 shadow-[0_2px_8px_rgba(0,0,0,0.04)] space-y-1">
                     {Object.keys(visibleCategories).map(cat => {
                       const style = getCategoryStyle(cat);
                       return (
-                        <label key={cat} className="flex items-center justify-between cursor-pointer select-none">
-                          <div className="flex items-center gap-2.5 text-xs font-medium text-gray-600">
+                        <label key={cat} className="flex items-center justify-between cursor-pointer select-none p-2.5 rounded-xl hover:bg-[#fafcfb] transition-colors">
+                          <div className="flex items-center gap-3.5 text-[13px] font-semibold text-gray-700">
+                            {/* Checkbox customizado idêntico ao design */}
+                            <div className={`w-4 h-4 rounded-[4px] border flex items-center justify-center transition-colors ${visibleCategories[cat] ? 'bg-[#00674F] border-[#00674F]' : 'border-gray-300'}`}>
+                              {visibleCategories[cat] && <Check size={12} strokeWidth={3} className="text-white" />}
+                            </div>
                             <input
                               type="checkbox"
                               checked={visibleCategories[cat]}
                               onChange={(e) => setVisibleCategories(prev => ({ ...prev, [cat]: e.target.checked }))}
-                              className="rounded border-gray-300 text-[#00674F] w-3.5 h-3.5 cursor-pointer"
+                              className="hidden"
                             />
                             <span>{cat}</span>
                           </div>
-                          <div className={`w-2 h-2 rounded-full ${style.dot}`} />
+                          <div className={`w-2 h-2 rounded-full shadow-sm ${style.dot}`} />
                         </label>
                       )
                     })}
@@ -539,6 +565,7 @@ export default function Dashboard({ session }) {
                 </div>
               </>
             ) : (
+              /* AQUI FICA O CÓDIGO DO FEED CENTRAL (MANTENHA COMO ESTÁ NO SEU ARQUIVO) */
               <div className="bg-white rounded-2xl border border-[#e4e9e6] p-6 flex flex-col h-full min-h-[480px] shadow-sm relative overflow-hidden">
                 <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-[#00674F] to-[#D3AF37]" />
                 <div className="flex items-center gap-2.5 mb-3.5">
