@@ -35,8 +35,8 @@ const buildCss = (dark) => `
   }
   .header {
     background: ${dark
-      ? 'linear-gradient(135deg, #001a12 0%, #003d2e 55%, #002d22 100%)'
-      : 'linear-gradient(135deg, #003d2e 0%, #00674F 55%, #005040 100%)'};
+    ? 'linear-gradient(135deg, #001a12 0%, #003d2e 55%, #002d22 100%)'
+    : 'linear-gradient(135deg, #003d2e 0%, #00674F 55%, #005040 100%)'};
     padding: 0 28px; height: 100px;
     display: flex; align-items: center; justify-content: space-between;
     position: relative; overflow: hidden; flex-shrink: 0;
@@ -205,7 +205,7 @@ export default function Dashboard({ session, isDark, toggleDark }) {
     const profilesMap = Object.fromEntries((profilesResult.data ?? []).map(p => [p.id, p.username]))
     setPosts((postsResult.data ?? []).map(post => ({
       ...post,
-      username: profilesMap[post.user_id] || 'Estudante UFABC'
+      username: profilesMap[post.user_id] || 'Estudante UFA'
     })))
   }
 
@@ -244,7 +244,7 @@ export default function Dashboard({ session, isDark, toggleDark }) {
 
           <div className="logo-area">
             <div className="logo-icon">
-              {/* Logo UFABC Organizador — documento + checklist + checkmark dourado */}
+              {/* Logo UFA Organizador — documento + checklist + checkmark dourado */}
               <svg viewBox="0 0 58 58" fill="none" xmlns="http://www.w3.org/2000/svg">
                 {/* Corpo do documento */}
                 <path
@@ -252,17 +252,17 @@ export default function Dashboard({ session, isDark, toggleDark }) {
                   fill="none" stroke="white" strokeWidth="3" strokeLinejoin="round"
                 />
                 {/* Corner fold */}
-                <path d="M36 6 L36 16 L46 16" fill="none" stroke="#D3AF37" strokeWidth="3" strokeLinejoin="round"/>
-                <path d="M36 6 L46 16" fill="#D3AF37"/>
+                <path d="M36 6 L36 16 L46 16" fill="none" stroke="#D3AF37" strokeWidth="3" strokeLinejoin="round" />
+                <path d="M36 6 L46 16" fill="#D3AF37" />
                 {/* Bullet + linha 1 */}
-                <circle cx="16" cy="23" r="2.2" fill="white"/>
-                <line x1="21" y1="23" x2="36" y2="23" stroke="white" strokeWidth="2.5" strokeLinecap="round"/>
+                <circle cx="16" cy="23" r="2.2" fill="white" />
+                <line x1="21" y1="23" x2="36" y2="23" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
                 {/* Bullet + linha 2 */}
-                <circle cx="16" cy="31" r="2.2" fill="white"/>
-                <line x1="21" y1="31" x2="36" y2="31" stroke="white" strokeWidth="2.5" strokeLinecap="round"/>
+                <circle cx="16" cy="31" r="2.2" fill="white" />
+                <line x1="21" y1="31" x2="36" y2="31" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
                 {/* Bullet + linha 3 */}
-                <circle cx="16" cy="39" r="2.2" fill="white"/>
-                <line x1="21" y1="39" x2="33" y2="39" stroke="white" strokeWidth="2.5" strokeLinecap="round"/>
+                <circle cx="16" cy="39" r="2.2" fill="white" />
+                <line x1="21" y1="39" x2="33" y2="39" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
                 {/* Checkmark dourado grande */}
                 <path
                   d="M18 47 L26 55 L44 36"
@@ -271,13 +271,13 @@ export default function Dashboard({ session, isDark, toggleDark }) {
               </svg>
             </div>
             <div className="logo-text">
-              <h1>UFABC</h1>
+              <h1>UFA ORGANIZEI</h1>
               <span className="brand">Organizador</span>
             </div>
             <div className="logo-divider" />
             <div className="header-welcome">
               <strong>Bem-vindo de volta, {username}!</strong>
-              <span>Organize suas tarefas e fique por dentro da UFABC.</span>
+              <span>Organize suas tarefas e fique por dentro da UFA.</span>
             </div>
           </div>
 
@@ -391,7 +391,7 @@ export default function Dashboard({ session, isDark, toggleDark }) {
                       </div>
                       <button className="task-delete" onClick={() => deleteTask(task.id)}>
                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
+                          <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M10 11v6" /><path d="M14 11v6" /><path d="M9 6V4h6v2" />
                         </svg>
                       </button>
                     </div>
@@ -408,7 +408,7 @@ export default function Dashboard({ session, isDark, toggleDark }) {
                   <Megaphone size={18} />
                 </div>
                 <div>
-                  <div className="card-title">Feed Central da UFABC</div>
+                  <div className="card-title">Feed Central da UFA</div>
                   <div className="card-subtitle">Fique por dentro das novidades da comunidade.</div>
                 </div>
               </div>

@@ -38,11 +38,10 @@ export default function Auth({ onLoginSuccess, isDark, toggleDark }) {
     setLoading(false)
   }
 
-  const inputClass = `w-full pl-10 pr-4 py-[11px] rounded-[10px] text-[13px] outline-none border transition-colors ${
-    isDark
-      ? 'bg-gray-800 border-gray-700 text-gray-100 placeholder-gray-500 focus:border-[#00674F]'
-      : 'bg-[#fafcfb] border-[#dde5e0] text-[#1a2e26] placeholder-[#b0bdb7] focus:border-[#00674F]'
-  }`
+  const inputClass = `w-full pl-10 pr-4 py-[11px] rounded-[10px] text-[13px] outline-none border transition-colors ${isDark
+    ? 'bg-gray-800 border-gray-700 text-gray-100 placeholder-gray-500 focus:border-[#00674F]'
+    : 'bg-[#fafcfb] border-[#dde5e0] text-[#1a2e26] placeholder-[#b0bdb7] focus:border-[#00674F]'
+    }`
 
   const labelClass = `block text-[12px] font-medium mb-1.5 ${isDark ? 'text-gray-300' : 'text-[#4a5e56]'}`
 
@@ -66,18 +65,18 @@ export default function Auth({ onLoginSuccess, isDark, toggleDark }) {
           {/* logo */}
           <div className="flex flex-col items-center mb-8">
             <svg width="72" height="72" viewBox="0 0 58 58" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginBottom: '12px' }}>
-              <path d="M10 6 H36 L46 16 V50 Q46 54 42 54 H10 Q6 54 6 50 V10 Q6 6 10 6 Z" fill="none" stroke="#00674F" strokeWidth="3" strokeLinejoin="round"/>
-              <path d="M36 6 L36 16 L46 16" fill="none" stroke="#D3AF37" strokeWidth="3" strokeLinejoin="round"/>
-              <path d="M36 6 L46 16" fill="#D3AF37"/>
-              <circle cx="16" cy="23" r="2.2" fill="#00674F"/>
-              <line x1="21" y1="23" x2="36" y2="23" stroke="#00674F" strokeWidth="2.5" strokeLinecap="round"/>
-              <circle cx="16" cy="31" r="2.2" fill="#00674F"/>
-              <line x1="21" y1="31" x2="36" y2="31" stroke="#00674F" strokeWidth="2.5" strokeLinecap="round"/>
-              <circle cx="16" cy="39" r="2.2" fill="#00674F"/>
-              <line x1="21" y1="39" x2="33" y2="39" stroke="#00674F" strokeWidth="2.5" strokeLinecap="round"/>
-              <path d="M18 47 L26 55 L44 36" fill="none" stroke="#D3AF37" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M10 6 H36 L46 16 V50 Q46 54 42 54 H10 Q6 54 6 50 V10 Q6 6 10 6 Z" fill="none" stroke="#00674F" strokeWidth="3" strokeLinejoin="round" />
+              <path d="M36 6 L36 16 L46 16" fill="none" stroke="#D3AF37" strokeWidth="3" strokeLinejoin="round" />
+              <path d="M36 6 L46 16" fill="#D3AF37" />
+              <circle cx="16" cy="23" r="2.2" fill="#00674F" />
+              <line x1="21" y1="23" x2="36" y2="23" stroke="#00674F" strokeWidth="2.5" strokeLinecap="round" />
+              <circle cx="16" cy="31" r="2.2" fill="#00674F" />
+              <line x1="21" y1="31" x2="36" y2="31" stroke="#00674F" strokeWidth="2.5" strokeLinecap="round" />
+              <circle cx="16" cy="39" r="2.2" fill="#00674F" />
+              <line x1="21" y1="39" x2="33" y2="39" stroke="#00674F" strokeWidth="2.5" strokeLinecap="round" />
+              <path d="M18 47 L26 55 L44 36" fill="none" stroke="#D3AF37" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
-            <h1 className={`text-[22px] font-medium ${isDark ? 'text-gray-100' : 'text-[#1a2e26]'}`}>UFABC Organizador</h1>
+            <h1 className={`text-[22px] font-medium ${isDark ? 'text-gray-100' : 'text-[#1a2e26]'}`}>UFA ORGANIZEI</h1>
             <p className="text-[13px] mt-1" style={{ color: '#8a9e94' }}>
               {isSignUp ? 'Crie sua conta de estudante' : 'Acesse seu painel acadêmico'}
             </p>
@@ -85,11 +84,10 @@ export default function Auth({ onLoginSuccess, isDark, toggleDark }) {
 
           {/* feedback */}
           {message.text && (
-            <div className={`px-4 py-3 rounded-[10px] mb-5 text-[13px] font-medium ${
-              message.type === 'error'
-                ? isDark ? 'bg-red-900/30 text-red-400' : 'bg-red-50 text-red-600'
-                : isDark ? 'bg-emerald-900/30 text-emerald-400' : 'bg-emerald-50 text-emerald-700'
-            }`}>
+            <div className={`px-4 py-3 rounded-[10px] mb-5 text-[13px] font-medium ${message.type === 'error'
+              ? isDark ? 'bg-red-900/30 text-red-400' : 'bg-red-50 text-red-600'
+              : isDark ? 'bg-emerald-900/30 text-emerald-400' : 'bg-emerald-50 text-emerald-700'
+              }`}>
               {message.text}
             </div>
           )}
@@ -111,7 +109,7 @@ export default function Auth({ onLoginSuccess, isDark, toggleDark }) {
               <label className={labelClass}>E-mail</label>
               <div className="relative">
                 <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: '#8a9e94' }} />
-                <input type="email" required placeholder="seu.email@aluno.ufabc.edu.br" value={email}
+                <input type="email" required placeholder="seu.email@aluno.ufaorganizei.edu.br" value={email}
                   onChange={e => setEmail(e.target.value)} className={inputClass} />
               </div>
             </div>
