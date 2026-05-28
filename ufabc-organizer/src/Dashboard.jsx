@@ -4,7 +4,7 @@ import {
   Plus, CheckCircle, Circle, Trash2, LogOut, Calendar,
   ListTodo, Home, Megaphone, LayoutGrid, BarChart, Settings,
   ChevronLeft, ChevronDown, Check, Bell, Award, Flame, MapPin,
-  Clock, Camera, ToggleRight, Search, Send
+  Clock, Camera, ToggleRight, Search, Send, SlidersHorizontal
 } from 'lucide-react'
 
 export default function Dashboard({ session }) {
@@ -497,17 +497,121 @@ export default function Dashboard({ session }) {
               </div>
             )}
 
-            {/* ABA TAREFAS */}
+            {/* ==================== ABA TAREFAS (DESIGN PREMIUM FIEL AOS ANEXOS 2 E 3) ==================== */}
             {activeTab === 'tarefas' && (
-              <div className="bg-white rounded-2xl border border-[#e4e9e6] p-6 flex flex-col shadow-sm h-full min-h-[480px]">
-                <div className="flex items-center gap-2.5 mb-5">
-                  <div className="w-9 h-9 rounded-xl bg-[#e8f5ef] flex items-center justify-center"><ListTodo size={18} className="text-[#00674F]" /></div>
-                  <div><div className="text-[15px] font-medium text-[#1a2e26]">Minhas Tarefas Acadêmicas</div><div className="text-xs text-[#8a9e94] mt-0.5">{pendingTasksCount} tarefas pendentes</div></div>
+              <div className="bg-white rounded-2xl border border-[#e4e9e6] p-6 flex flex-col shadow-sm h-full min-h-[480px] animate-fade-in">
+
+                {/* Header Superior */}
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                  <div className="flex items-center gap-3.5">
+                    <div className="w-11 h-11 rounded-xl bg-[#e8f5ef] flex items-center justify-center shrink-0">
+                      <ListTodo size={22} className="text-[#00674F]" />
+                    </div>
+                    <div>
+                      <h2 className="text-[18px] font-bold text-[#1a2e26] leading-none mb-1">Minhas Tarefas</h2>
+                      <p className="text-[12px] text-[#8a9e94]">Organize, priorize e conclua suas atividades.</p>
+                    </div>
+                  </div>
+                  <div className="relative w-full md:w-64">
+                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input type="text" placeholder="Buscar tarefas..." className="w-full pl-9 pr-4 py-2.5 border border-[#dde5e0] rounded-xl text-xs bg-[#fafcfb] outline-none focus:border-[#00674F] transition-colors" />
+                  </div>
                 </div>
-                <form onSubmit={handleAddTask} className="flex flex-col sm:flex-row gap-2.5 mb-5">
-                  <input type="text" placeholder="Ex: Estudar para P1 de Física" value={newTaskTitle} onChange={(e) => setNewTaskTitle(e.target.value)} className="flex-1 px-3.5 py-2.5 rounded-xl border border-[#dde5e0] text-xs text-[#1a2e26] bg-[#fafcfb] outline-none" required />
-                  <button type="submit" className="bg-[#00674F] text-white rounded-xl px-4 py-2.5 text-xs font-semibold hover:bg-[#005040]">Adicionar</button>
+
+                {/* Barra de Filtros e Ações */}
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mb-6">
+                  <div className="flex items-center gap-2 overflow-x-auto scrollbar-none pb-1 lg:pb-0">
+                    <button className="px-3.5 py-1.5 bg-[#00674F] text-white rounded-lg text-xs font-semibold flex items-center gap-2 whitespace-nowrap shadow-sm">
+                      Todas <span className="bg-white/20 px-1.5 py-0.5 rounded text-[10px]">{tasks.length}</span>
+                    </button>
+                    <button className="px-3.5 py-1.5 bg-white border border-[#dde5e0] text-gray-600 hover:bg-gray-50 rounded-lg text-xs font-semibold flex items-center gap-2 whitespace-nowrap transition-colors">
+                      Pendentes <span className="bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded text-[10px]">{pendingTasksCount}</span>
+                    </button>
+                    <button className="px-3.5 py-1.5 bg-white border border-[#dde5e0] text-gray-600 hover:bg-gray-50 rounded-lg text-xs font-semibold flex items-center gap-2 whitespace-nowrap transition-colors">
+                      Concluídas <span className="bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded text-[10px]">{tasks.length - pendingTasksCount}</span>
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button className="px-3.5 py-1.5 bg-white border border-[#dde5e0] text-gray-600 hover:bg-gray-50 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors">
+                      <SlidersHorizontal size={14} /> Filtros
+                    </button>
+                  </div>
+                </div>
+
+                {/* Formulário Inline de Nova Tarefa (Integrado ao Design Premium) */}
+                <form onSubmit={handleAddTask} className="flex flex-col sm:flex-row gap-2.5 mb-6 p-1.5 bg-[#fafcfb] border border-[#e8ede9] rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.02)]">
+                  <input type="text" placeholder="Título da nova tarefa (Ex: Estudar para P1)" value={newTaskTitle} onChange={(e) => setNewTaskTitle(e.target.value)} className="flex-1 px-3.5 py-2 border-none bg-transparent text-xs outline-none text-[#1a2e26] font-medium placeholder:font-normal" required />
+                  <div className="w-px h-6 bg-gray-200 hidden sm:block self-center"></div>
+                  <input type="date" value={newTaskDate} onChange={(e) => setNewTaskDate(e.target.value)} className="px-3 py-2 border-none bg-transparent text-xs outline-none text-gray-500 sm:w-[130px] font-medium" />
+                  <button type="submit" disabled={loading} className="bg-[#00674F] text-white rounded-lg px-5 py-2 text-xs font-bold hover:bg-[#005040] disabled:opacity-50 transition-colors shadow-sm flex items-center gap-1.5 shrink-0">
+                    <Plus size={14} /> Adicionar
+                  </button>
                 </form>
+
+                {/* Lista de Tarefas (Estilo Tabela Rica) */}
+                <div className="flex-1 overflow-y-auto pr-1 space-y-4 scrollbar-thin">
+                  <div className="space-y-2.5">
+                    {/* Cabeçalho da Seção de Lista */}
+                    <div className="flex items-center justify-between border-b border-gray-100 pb-2 mb-3">
+                      <div className="flex items-center gap-2 text-[13px] font-bold text-[#1a2e26]">
+                        <ChevronDown size={16} /> Suas tarefas
+                        <span className="text-gray-400 font-medium text-xs ml-1">• {tasks.length} itens</span>
+                      </div>
+                    </div>
+
+                    {/* Cards Renderizados */}
+                    {tasks.length === 0 ? (
+                      <p className="text-center text-gray-400 text-xs py-8">Nenhuma tarefa criada.</p>
+                    ) : (
+                      tasks.map((task) => (
+                        <div key={task.id} className={`flex items-center justify-between p-3 bg-white border rounded-xl hover:shadow-[0_2px_12px_rgba(0,0,0,0.04)] transition-all group ${task.is_completed ? 'border-gray-100' : 'border-[#e8ede9]'}`}>
+
+                          {/* Coluna 1: Check + Ícone + Título + Tag */}
+                          <div className="flex items-center gap-3.5 flex-1 min-w-0">
+                            <button onClick={() => toggleTaskComplete(task.id, task.is_completed)} className="shrink-0 transition-transform active:scale-90">
+                              {task.is_completed ? <CheckCircle className="text-[#00674F]" size={20} /> : <Circle size={20} className="text-gray-300 hover:text-gray-400" />}
+                            </button>
+                            <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${task.is_completed ? 'bg-gray-50 text-gray-400' : 'bg-[#e8f5ef] text-[#00674F]'}`}>
+                              <ListTodo size={16} />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <h4 className={`text-[13px] font-bold truncate transition-colors ${task.is_completed ? 'text-gray-400 line-through' : 'text-[#1a2e26]'}`}>{task.title}</h4>
+                              <div className="flex items-center gap-2 mt-1">
+                                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md border ${task.is_completed ? 'bg-gray-50 text-gray-400 border-gray-100' : 'bg-[#e8f5ef] text-[#00674F] border-[#a3d9c9]'}`}>Acadêmico</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Coluna 2: Metadados (Prioridade, Data, Status) - Escondidos no Mobile */}
+                          <div className="flex items-center gap-5 shrink-0 hidden lg:flex ml-4">
+                            <div className="flex items-center gap-1.5 w-20">
+                              <span className={`w-1.5 h-1.5 rounded-full ${task.is_completed ? 'bg-gray-300' : 'bg-amber-500'}`}></span>
+                              <span className={`text-[11px] font-bold ${task.is_completed ? 'text-gray-400' : 'text-gray-600'}`}>Média</span>
+                            </div>
+                            <div className={`flex items-center gap-1.5 w-24 text-[11px] font-semibold ${task.is_completed ? 'text-gray-400' : 'text-gray-500'}`}>
+                              <Calendar size={12} />
+                              <span className="truncate">{task.due_date ? task.due_date : 'Sem prazo'}</span>
+                            </div>
+                            <div className="w-24 flex justify-start">
+                              {task.is_completed ? (
+                                <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-100 px-2 py-1 rounded-md flex items-center gap-1"><Check size={10} /> Concluída</span>
+                              ) : (
+                                <span className="text-[10px] font-bold text-amber-600 bg-amber-50 border border-amber-100 px-2 py-1 rounded-md flex items-center gap-1"><Clock size={10} /> Pendente</span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Coluna 3: Ação (Lixeira com hover suave) */}
+                          <div className="flex items-center justify-end shrink-0 w-8 ml-2">
+                            <button onClick={() => deleteTask(task.id)} className="text-gray-300 hover:text-red-500 p-1.5 opacity-0 group-hover:opacity-100 transition-all rounded-md hover:bg-red-50">
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
               </div>
             )}
 
@@ -750,6 +854,76 @@ export default function Dashboard({ session }) {
                   </div>
                 </div>
               </>
+            ) : activeTab === 'tarefas' ? (
+
+              /* ==================== VISÃO GERAL DE TAREFAS (DESIGN PREMIUM) ==================== */
+              <div className="space-y-6 animate-fade-in">
+                {/* Card Visão Geral */}
+                <div className="bg-white rounded-2xl border border-[#e4e9e6] p-5 shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
+                  <div className="flex justify-between items-center mb-5 px-1">
+                    <span className="text-[15px] font-bold text-[#1a2e26]">Visão geral</span>
+                    <span className="text-[11px] font-bold text-[#00674F] cursor-pointer hover:underline">Ver detalhes</span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 mb-6">
+                    <div className="bg-[#fafcfb] border border-[#e8ede9] p-3.5 rounded-xl flex flex-col gap-2">
+                      <div className="flex items-center gap-2">
+                        <Calendar size={14} className="text-[#00674F]" />
+                        <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Total</span>
+                      </div>
+                      <span className="text-xl font-bold text-[#1a2e26] leading-none">{tasks.length}</span>
+                    </div>
+
+                    <div className="bg-[#fafcfb] border border-[#e8ede9] p-3.5 rounded-xl flex flex-col gap-2">
+                      <div className="flex items-center gap-2">
+                        <Clock size={14} className="text-amber-500" />
+                        <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Pendentes</span>
+                      </div>
+                      <span className="text-xl font-bold text-[#1a2e26] leading-none">{pendingTasksCount}</span>
+                    </div>
+
+                    <div className="bg-[#fafcfb] border border-[#e8ede9] p-3.5 rounded-xl flex flex-col gap-2">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle size={14} className="text-[#00674F]" />
+                        <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Concluídas</span>
+                      </div>
+                      <span className="text-xl font-bold text-[#1a2e26] leading-none">{tasks.length - pendingTasksCount}</span>
+                    </div>
+
+                    <div className="bg-[#fafcfb] border border-[#e8ede9] p-3.5 rounded-xl flex flex-col gap-2 opacity-50">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Atrasadas</span>
+                      </div>
+                      <span className="text-xl font-bold text-gray-400 leading-none">0</span>
+                    </div>
+                  </div>
+
+                  {/* Barra de Progresso Real */}
+                  <div className="px-1">
+                    <div className="flex justify-between text-[11px] font-bold mb-2">
+                      <span className="text-gray-600">Progresso geral</span>
+                      <span className="text-[#00674F] text-[13px]">{tasks.length ? Math.round(((tasks.length - pendingTasksCount) / tasks.length) * 100) : 0}%</span>
+                    </div>
+                    <div className="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">
+                      <div className="bg-[#00674F] h-full rounded-full transition-all duration-500" style={{ width: `${tasks.length ? ((tasks.length - pendingTasksCount) / tasks.length) * 100 : 0}%` }}></div>
+                    </div>
+                    <p className="text-[10px] text-gray-400 mt-2 font-medium">{tasks.length - pendingTasksCount} de {tasks.length} tarefas concluídas</p>
+                  </div>
+                </div>
+
+                {/* Card de Etiquetas/Categorias */}
+                <div className="bg-white rounded-2xl border border-[#e4e9e6] p-5 shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
+                  <div className="flex justify-between items-center mb-4 px-1">
+                    <span className="text-[15px] font-bold text-[#1a2e26]">Etiquetas</span>
+                    <span className="text-[11px] font-bold text-[#00674F] cursor-pointer hover:underline">Gerenciar</span>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <span className="px-2.5 py-1 bg-[#e8f5ef] text-[#00674F] text-[10px] font-bold rounded-lg border border-[#a3d9c9] cursor-pointer hover:bg-[#d1ebe0] transition-colors">Acadêmico <span className="ml-1 opacity-60">12</span></span>
+                    <span className="px-2.5 py-1 bg-amber-50 text-amber-700 text-[10px] font-bold rounded-lg border border-amber-200 cursor-pointer hover:bg-amber-100 transition-colors">Pessoal <span className="ml-1 opacity-60">3</span></span>
+                    <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 text-[10px] font-bold rounded-lg border border-emerald-200 cursor-pointer hover:bg-emerald-100 transition-colors">Projeto <span className="ml-1 opacity-60">2</span></span>
+                  </div>
+                </div>
+              </div>
             ) : (
               /* AQUI FICA O CÓDIGO DO FEED CENTRAL (MANTENHA COMO ESTÁ NO SEU ARQUIVO) */
               <div className="bg-white rounded-2xl border border-[#e4e9e6] p-6 flex flex-col h-full min-h-[480px] shadow-sm relative overflow-hidden">
