@@ -1,455 +1,568 @@
 import React, { useState, useEffect } from 'react'
 import { supabase } from './supabaseClient'
-import { Plus, CheckCircle, Circle, Trash2, LogOut, Calendar, Send, Moon, Sun, ChevronDown, Home, ClipboardList, CalendarDays, Megaphone, LayoutGrid, BarChart3, Settings, ChevronsLeft, ChevronsRight, Check } from 'lucide-react'
+import {
+  Plus, CheckCircle, Circle, Trash2, LogOut, Calendar,
+  ListTodo, Share2, Send, Home, Speakerphone,
+  LayoutGrid, BarChart, Settings, ChevronLeft, ChevronDown, Check,
+  Bell, Award, Flame
+} from 'lucide-react'
 
-// CSS gerado dinamicamente com variáveis que mudam conforme isDark
-const buildCss = (dark) => `
-  .dash {
-    --bg: ${dark ? '#0a0f0d' : '#F5F7F6'};
-    --sidebar-bg: ${dark ? '#111815' : '#ffffff'};
-    --sidebar-border: ${dark ? '#1e2a24' : '#e8ebe9'};
-    --nav-color: ${dark ? '#7a9e8a' : '#5a6b63'};
-    --nav-hover-bg: ${dark ? '#1a2e24' : '#f0f5f2'};
-    --nav-hover-color: ${dark ? '#6ee7b7' : '#00674F'};
-    --card-bg: ${dark ? '#111815' : '#ffffff'};
-    --card-border: ${dark ? '#1e2a24' : '#e4e9e6'};
-    --card-title: ${dark ? '#e2ede8' : '#1a2e26'};
-    --input-bg: ${dark ? '#1a2420' : '#fafcfb'};
-    --input-bg-focus: ${dark ? '#1f2d28' : '#ffffff'};
-    --input-border: ${dark ? '#2a3d34' : '#dde5e0'};
-    --input-color: ${dark ? '#d4e8de' : '#1a2e26'};
-    --input-placeholder: ${dark ? '#4a6a58' : '#b0bdb7'};
-    --task-item-bg: ${dark ? '#161e1a' : '#ffffff'};
-    --task-item-done-bg: ${dark ? '#111815' : '#fafcfb'};
-    --task-title-color: ${dark ? '#d4e8de' : '#1a2e26'};
-    --post-bg: ${dark ? '#161e1a' : '#fafcfb'};
-    --post-hover-bg: ${dark ? '#1a2420' : '#f0f5f2'};
-    --post-border: ${dark ? '#1e2a24' : '#e8ede9'};
-    --post-author: ${dark ? '#d4e8de' : '#1a2e26'};
-    --post-content: ${dark ? '#7a9e8a' : '#5a6b63'};
-    --empty-title: ${dark ? '#7a9e8a' : '#4a5e56'};
-    --scrollbar-thumb: ${dark ? '#2a3d34' : '#d0ddd7'};
-    display: flex; flex-direction: column; height: 100vh;
-    background: var(--bg);
-    transition: background 0.3s;
-  }
-  .header {
-    background: ${dark
-    ? 'linear-gradient(135deg, #001a12 0%, #003d2e 55%, #002d22 100%)'
-    : 'linear-gradient(135deg, #003d2e 0%, #00674F 55%, #005040 100%)'};
-    padding: 0 28px; height: 100px;
-    display: flex; align-items: center; justify-content: space-between;
-    position: relative; overflow: hidden; flex-shrink: 0;
-    transition: background 0.3s;
-  }
-  .header-arc { position: absolute; right: -40px; top: -60px; width: 280px; height: 220px; border-radius: 50%; border: 2px solid rgba(211,175,55,0.25); pointer-events: none; }
-  .header-arc2 { position: absolute; right: 60px; top: -100px; width: 320px; height: 280px; border-radius: 50%; border: 1px solid rgba(211,175,55,0.12); pointer-events: none; }
-  .header-dots { position: absolute; left: 0; top: 0; width: 100%; height: 100%; background-image: radial-gradient(circle, rgba(255,255,255,0.04) 1px, transparent 1px); background-size: 28px 28px; pointer-events: none; }
-  .logo-area { display: flex; align-items: center; gap: 16px; position: relative; z-index: 1; }
-  .logo-icon { width: 58px; height: 58px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-  .logo-icon svg { width: 58px; height: 58px; }
-  .logo-text { color: white; }
-  .logo-text h1 { font-size: 18px; font-weight: 500; letter-spacing: 0.3px; }
-  .logo-text .brand { color: #D3AF37; font-size: 13px; font-weight: 500; }
-  .logo-divider { width: 1px; height: 40px; background: rgba(255,255,255,0.2); margin: 0 4px; }
-  .header-welcome { color: rgba(255,255,255,0.9); position: relative; z-index: 1; }
-  .header-welcome strong { font-size: 15px; font-weight: 500; display: block; }
-  .header-welcome span { font-size: 12px; opacity: 0.7; }
-  .header-right { display: flex; align-items: center; gap: 12px; position: relative; z-index: 1; }
-  .user-pill { display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); border-radius: 40px; padding: 6px 14px 6px 6px; backdrop-filter: blur(8px); cursor: pointer; transition: background 0.2s; }
-  .user-pill:hover { background: rgba(255,255,255,0.13); }
-  .avatar { width: 34px; height: 34px; border-radius: 50%; background: linear-gradient(135deg, #D3AF37, #a88620); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 500; color: white; flex-shrink: 0; }
-  .user-info { color: white; }
-  .user-info .uname { font-size: 13px; font-weight: 500; display: block; }
-  .user-info .uemail { font-size: 11px; opacity: 0.65; }
-  .chevron { color: rgba(255,255,255,0.5); font-size: 12px; margin-left: 2px; }
-  .btn-sair { display: flex; align-items: center; gap: 7px; background: linear-gradient(135deg, #D3AF37, #b8942a); color: white; border: none; border-radius: 10px; padding: 9px 18px; font-size: 13px; font-weight: 500; cursor: pointer; transition: opacity 0.2s; }
-  .btn-sair:hover { opacity: 0.88; }
-  .btn-dark { display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.15); color: white; border-radius: 10px; padding: 9px; cursor: pointer; transition: background 0.2s; }
-  .btn-dark:hover { background: rgba(255,255,255,0.18); }
-  .body { display: flex; flex: 1; overflow: hidden; }
-  .sidebar { width: 200px; flex-shrink: 0; background: var(--sidebar-bg); border-right: 0.5px solid var(--sidebar-border); padding: 20px 12px; display: flex; flex-direction: column; gap: 4px; overflow-y: auto; transition: width 0.25s, background 0.3s; }
-  .sidebar.collapsed { width: 60px; }
-  .nav-item { display: flex; align-items: center; gap: 11px; padding: 9px 12px; border-radius: 10px; cursor: pointer; color: var(--nav-color); font-size: 13px; font-weight: 400; transition: all 0.15s; border: none; background: none; width: 100%; text-align: left; white-space: nowrap; overflow: hidden; }
-  .nav-item:hover { background: var(--nav-hover-bg); color: var(--nav-hover-color); }
-  .nav-item.active { background: #00674F; color: white; font-weight: 500; }
-  .nav-spacer { flex: 1; }
-  .nav-collapse { display: flex; align-items: center; gap: 6px; padding: 8px 12px; border-radius: 10px; cursor: pointer; color: #8a9e94; font-size: 12px; border: none; background: none; width: 100%; white-space: nowrap; overflow: hidden; }
-  .nav-collapse:hover { background: var(--nav-hover-bg); }
-  .main { flex: 1; padding: 22px; display: grid; grid-template-columns: 1fr 360px; gap: 18px; overflow: auto; }
-  .card { background: var(--card-bg); border-radius: 16px; border: 0.5px solid var(--card-border); padding: 24px; display: flex; flex-direction: column; transition: background 0.3s, border-color 0.3s; }
-  .card-header { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; }
-  .card-header-icon { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-  .card-header-icon.verde { background: ${dark ? 'rgba(0,103,79,0.2)' : '#e8f5ef'}; color: #00674F; }
-  .card-header-icon.dourado { background: ${dark ? 'rgba(211,175,55,0.12)' : '#fdf5e0'}; color: #D3AF37; }
-  .card-title { font-size: 15px; font-weight: 500; color: var(--card-title); }
-  .card-subtitle { font-size: 12px; color: #8a9e94; margin-top: 1px; }
-  .input-row { display: flex; gap: 10px; margin-bottom: 20px; }
-  .task-input { flex: 1; padding: 10px 14px; border-radius: 10px; border: 1px solid var(--input-border); font-size: 13px; color: var(--input-color); background: var(--input-bg); outline: none; transition: border 0.2s, background 0.2s; }
-  .task-input:focus { border-color: #00674F; background: var(--input-bg-focus); }
-  .task-input::placeholder { color: var(--input-placeholder); }
-  .date-input { padding: 10px 12px; border-radius: 10px; border: 1px solid var(--input-border); font-size: 12px; color: var(--input-color); background: var(--input-bg); outline: none; width: 140px; transition: background 0.3s; }
-  .btn-add { display: flex; align-items: center; gap: 6px; background: #00674F; color: white; border: none; border-radius: 10px; padding: 10px 18px; font-size: 13px; font-weight: 500; cursor: pointer; white-space: nowrap; transition: background 0.2s; }
-  .btn-add:hover { background: #005040; }
-  .btn-add:disabled { opacity: 0.5; cursor: not-allowed; }
-  .empty-state { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 32px 0; }
-  .empty-ilu { width: 80px; height: 80px; position: relative; }
-  .empty-ilu-inner { width: 60px; height: 72px; border: 2.5px solid ${dark ? '#2a3d34' : '#c8e0d6'}; border-radius: 8px; background: ${dark ? '#161e1a' : '#f0f7f3'}; position: relative; display: flex; flex-direction: column; gap: 6px; padding: 12px 10px; }
-  .check-line { height: 3px; background: ${dark ? '#2a3d34' : '#b0d4c4'}; border-radius: 2px; display: flex; align-items: center; gap: 4px; }
-  .check-dot { width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid ${dark ? '#2a3d34' : '#c8e0d6'}; flex-shrink: 0; }
-  .check-dot.done { background: #00674F; border-color: #00674F; }
-  .check-bar { flex: 1; height: 2.5px; background: ${dark ? '#2a3d34' : '#c8e0d6'}; border-radius: 2px; }
-  .coin { width: 26px; height: 26px; border-radius: 50%; background: #D3AF37; border: 2px solid ${dark ? '#111815' : 'white'}; position: absolute; bottom: -6px; right: -10px; display: flex; align-items: center; justify-content: center; color: white; }
-  .empty-title { font-size: 13px; font-weight: 500; color: var(--empty-title); }
-  .empty-sub { font-size: 12px; color: #9aada5; }
-  .task-list { display: flex; flex-direction: column; gap: 10px; flex: 1; overflow-y: auto; }
-  .task-item { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--card-border); transition: all 0.15s; background: var(--task-item-bg); }
-  .task-item:hover { box-shadow: 0 1px 6px rgba(0,103,79,0.12); }
-  .task-item.done { opacity: 0.6; background: var(--task-item-done-bg); }
-  .task-left { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
-  .task-check { background: none; border: none; cursor: pointer; display: flex; align-items: center; color: #4a6a58; transition: color 0.15s; flex-shrink: 0; padding: 0; }
-  .task-check:hover { color: #00674F; }
-  .task-check.done { color: #00674F; }
-  .task-info { flex: 1; min-width: 0; }
-  .task-title { font-size: 13px; font-weight: 500; color: var(--task-title-color); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .task-title.done { text-decoration: line-through; color: #4a6a58; }
-  .task-date { font-size: 11px; color: #8a9e94; display: flex; align-items: center; gap: 4px; margin-top: 2px; }
-  .task-delete { background: none; border: none; cursor: pointer; color: #4a6a58; transition: color 0.15s; padding: 4px; flex-shrink: 0; display: flex; }
-  .task-delete:hover { color: #ef4444; }
-  .feed-card { height: 100%; min-height: 0; }
-  .feed-top-bar { height: 3px; background: linear-gradient(90deg, #00674F, #D3AF37); margin: -24px -24px 20px; border-radius: 15px 15px 0 0; flex-shrink: 0; }
-  .feed-input-row { display: flex; gap: 8px; margin-bottom: 16px; flex-shrink: 0; }
-  .feed-input { flex: 1; padding: 9px 13px; border-radius: 10px; border: 1px solid var(--input-border); font-size: 12px; color: var(--input-color); background: var(--input-bg); outline: none; transition: background 0.3s; }
-  .feed-input::placeholder { color: var(--input-placeholder); }
-  .feed-input:focus { border-color: #D3AF37; }
-  .btn-send { width: 36px; height: 36px; border-radius: 10px; background: #D3AF37; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: background 0.2s; color: white; }
-  .btn-send:hover { background: #b8942a; }
-  .feed-scroll { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-right: 2px; min-height: 0; }
-  .feed-scroll::-webkit-scrollbar { width: 3px; }
-  .feed-scroll::-webkit-scrollbar-track { background: transparent; }
-  .feed-scroll::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 3px; }
-  .post { padding: 12px 14px; border-radius: 12px; background: var(--post-bg); border: 0.5px solid var(--post-border); display: flex; gap: 10px; cursor: pointer; transition: background 0.15s; }
-  .post:hover { background: var(--post-hover-bg); }
-  .post-accent { width: 3px; border-radius: 3px; flex-shrink: 0; }
-  .post-accent.v { background: #00674F; }
-  .post-accent.d { background: #D3AF37; }
-  .post-body { flex: 1; min-width: 0; }
-  .post-author { font-size: 12px; font-weight: 500; color: var(--post-author); display: flex; align-items: center; gap: 6px; }
-  .post-time { font-size: 11px; color: #aabdb5; font-weight: 400; }
-  .post-content { font-size: 12px; color: var(--post-content); margin-top: 3px; line-height: 1.5; word-break: break-word; }
-  .feed-empty { text-align: center; font-size: 12px; color: #4a6a58; padding: 40px 0; }
-`
+export default function Dashboard({ session }) {
+  // Estado de Navegação das Abas
+  const [activeTab, setActiveTab] = useState('inicio')
 
-function timeAgo(dateStr) {
-  const diff = Math.floor((Date.now() - new Date(dateStr)) / 1000)
-  if (diff < 3600) return `Há ${Math.floor(diff / 60)}min`
-  if (diff < 86400) return `Há ${Math.floor(diff / 3600)}h`
-  if (diff < 604800) return `Há ${Math.floor(diff / 86400)} dia${Math.floor(diff / 86400) > 1 ? 's' : ''}`
-  return new Date(dateStr).toLocaleDateString('pt-BR')
-}
-
-export default function Dashboard({ session, isDark, toggleDark }) {
+  // Estados das Tarefas
   const [tasks, setTasks] = useState([])
   const [newTaskTitle, setNewTaskTitle] = useState('')
   const [newTaskDate, setNewTaskDate] = useState('')
+
+  // Estados do Feed Coletivo
   const [posts, setPosts] = useState([])
   const [newPostContent, setNewPostContent] = useState('')
+
   const [loading, setLoading] = useState(false)
-  const [collapsed, setCollapsed] = useState(false)
-  const [activeNav, setActiveNav] = useState('inicio')
+
+  // Extrai informações do usuário logado
+  const userEmail = session?.user?.email || 'estudante@ufabc.edu.br'
+  const userPrefix = userEmail.split('@')[0]
+  const displayFirstName = userPrefix.charAt(0).toUpperCase() + userPrefix.slice(1)
+  const avatarInitials = userPrefix.slice(0, 2).toUpperCase()
 
   useEffect(() => {
     fetchTasks()
     fetchPosts()
+
+    // Sistema em tempo real do Feed Coletivo
     const channel = supabase
       .channel('schema-db-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'posts' }, fetchPosts)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'posts' }, () => {
+        fetchPosts()
+      })
       .subscribe()
+
     return () => supabase.removeChannel(channel)
   }, [])
 
+  // ==================== LÓGICA DAS TAREFAS ====================
   const fetchTasks = async () => {
-    const { data, error } = await supabase.from('tasks').select('*').order('created_at', { ascending: false })
-    if (error) console.error(error.message)
+    const { data, error } = await supabase
+      .from('tasks')
+      .select('*')
+      .order('created_at', { ascending: false })
+
+    if (error) console.error('Erro ao buscar tarefas:', error.message)
     else setTasks(data || [])
   }
 
   const handleAddTask = async (e) => {
     e.preventDefault()
     if (!newTaskTitle.trim()) return
+
     setLoading(true)
-    const { error } = await supabase.from('tasks').insert([{
-      user_id: session.user.id, title: newTaskTitle, due_date: newTaskDate || null, is_completed: false
-    }])
-    if (error) alert('Erro: ' + error.message)
-    else { setNewTaskTitle(''); setNewTaskDate(''); fetchTasks() }
+    const { error } = await supabase
+      .from('tasks')
+      .insert([
+        {
+          user_id: session.user.id,
+          title: newTaskTitle,
+          due_date: newTaskDate || null,
+          is_completed: false
+        }
+      ])
+
+    if (error) {
+      alert('Erro ao criar tarefa: ' + error.message)
+    } else {
+      setNewTaskTitle('')
+      setNewTaskDate('')
+      fetchTasks()
+    }
     setLoading(false)
   }
 
-  const toggleTaskComplete = async (id, current) => {
-    await supabase.from('tasks').update({ is_completed: !current }).eq('id', id)
-    fetchTasks()
+  const toggleTaskComplete = async (id, currentStatus) => {
+    const { error } = await supabase
+      .from('tasks')
+      .update({ is_completed: !currentStatus })
+      .eq('id', id)
+
+    if (error) console.error('Erro ao atualizar tarefa:', error.message)
+    else fetchTasks()
   }
 
   const deleteTask = async (id) => {
-    await supabase.from('tasks').delete().eq('id', id)
-    fetchTasks()
+    const { error } = await supabase
+      .from('tasks')
+      .delete()
+      .eq('id', id)
+
+    if (error) console.error('Erro ao deletar tarefa:', error.message)
+    else fetchTasks()
   }
 
+  // ==================== LÓGICA DO FEED ====================
   const fetchPosts = async () => {
-    const [postsResult, profilesResult] = await Promise.all([
-      supabase.from('posts').select('id, content, created_at, user_id').order('created_at', { ascending: false }),
-      supabase.from('profiles').select('id, username')
-    ])
-    if (postsResult.error) { console.error(postsResult.error.message); return }
-    const profilesMap = Object.fromEntries((profilesResult.data ?? []).map(p => [p.id, p.username]))
-    setPosts((postsResult.data ?? []).map(post => ({
+    const { data: postsData, error: postsError } = await supabase
+      .from('posts')
+      .select('id, content, created_at, user_id')
+      .order('created_at', { ascending: false })
+
+    if (postsError) {
+      console.error('Erro ao buscar feed:', postsError.message)
+      return
+    }
+
+    if (!postsData || postsData.length === 0) {
+      setPosts([])
+      return
+    }
+
+    const { data: profilesData, error: profilesError } = await supabase
+      .from('profiles')
+      .select('id, username')
+
+    if (profilesError) {
+      console.error('Erro ao buscar perfis:', profilesError.message)
+      setPosts(postsData.map(post => ({ ...post, profiles: null })))
+      return
+    }
+
+    const profilesMap = {}
+    profilesData?.forEach(p => {
+      profilesMap[p.id] = p.username
+    })
+
+    const formattedPosts = postsData.map(post => ({
       ...post,
-      username: profilesMap[post.user_id] || 'Estudante UFA'
-    })))
+      profiles: profilesMap[post.user_id] ? { username: profilesMap[post.user_id] } : null
+    }))
+
+    setPosts(formattedPosts)
   }
 
   const handleCreatePost = async (e) => {
     e.preventDefault()
     if (!newPostContent.trim()) return
-    const { error } = await supabase.from('posts').insert([{ user_id: session.user.id, content: newPostContent }])
-    if (error) alert('Erro: ' + error.message)
-    else { setNewPostContent(''); fetchPosts() }
+
+    const { error } = await supabase
+      .from('posts')
+      .insert([
+        {
+          user_id: session.user.id,
+          content: newPostContent
+        }
+      ])
+
+    if (error) {
+      alert('Erro ao postar no feed: ' + error.message)
+    } else {
+      setNewPostContent('')
+      fetchPosts()
+    }
   }
 
-  const username = session.user.user_metadata?.username || session.user.email.split('@')[0]
-  const initials = username.slice(0, 2).toUpperCase()
-  const pendingCount = tasks.filter(t => !t.is_completed).length
-
-  const navItems = [
-    { key: 'inicio', Icon: Home, label: 'Início' },
-    { key: 'tarefas', Icon: ClipboardList, label: 'Tarefas' },
-    { key: 'agenda', Icon: CalendarDays, label: 'Agenda' },
-    { key: 'avisos', Icon: Megaphone, label: 'Avisos' },
-    { key: 'feed', Icon: LayoutGrid, label: 'Feed' },
-    { key: 'relatorios', Icon: BarChart3, label: 'Relatórios' },
-    { key: 'configuracoes', Icon: Settings, label: 'Configurações' },
-  ]
+  // Contadores estatísticos para a tela Início
+  const pendingTasksCount = tasks.filter(task => !task.is_completed).length
 
   return (
-    <>
-      <style>{buildCss(isDark)}</style>
-      <div className="dash">
+    <div className="flex flex-col h-screen bg-[#F5F7F6] min-h-[640px] font-sans antialiased overflow-hidden">
 
-        {/* ── HEADER ── */}
-        <div className="header">
-          <div className="header-dots" />
-          <div className="header-arc" />
-          <div className="header-arc2" />
+      {/* ==================== HEADER ==================== */}
+      <header className="bg-gradient-to-br from-[#003d2e] via-[#00674F] to-[#005040] px-7 h-24 flex items-center justify-between relative overflow-hidden shrink-0 shadow-md">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_rgba(255,255,255,0.04)_1px,_transparent_1px)] bg-[size:28px_28px] pointer-events-none" />
+        <div className="absolute -right-10 -top-16 w-72 h-56 rounded-full border-2 border-[rgba(211,175,55,0.25)] pointer-events-none" />
+        <div className="absolute right-14 -top-24 w-80 h-72 rounded-full border border-[rgba(211,175,55,0.12)] pointer-events-none" />
 
-          <div className="logo-area">
-            <div className="logo-icon">
-              {/* Logo UFA Organizador — documento + checklist + checkmark dourado */}
-              <svg viewBox="0 0 58 58" fill="none" xmlns="http://www.w3.org/2000/svg">
-                {/* Corpo do documento */}
-                <path
-                  d="M10 6 H36 L46 16 V50 Q46 54 42 54 H10 Q6 54 6 50 V10 Q6 6 10 6 Z"
-                  fill="none" stroke="white" strokeWidth="3" strokeLinejoin="round"
-                />
-                {/* Corner fold */}
-                <path d="M36 6 L36 16 L46 16" fill="none" stroke="#D3AF37" strokeWidth="3" strokeLinejoin="round" />
-                <path d="M36 6 L46 16" fill="#D3AF37" />
-                {/* Bullet + linha 1 */}
-                <circle cx="16" cy="23" r="2.2" fill="white" />
-                <line x1="21" y1="23" x2="36" y2="23" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
-                {/* Bullet + linha 2 */}
-                <circle cx="16" cy="31" r="2.2" fill="white" />
-                <line x1="21" y1="31" x2="36" y2="31" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
-                {/* Bullet + linha 3 */}
-                <circle cx="16" cy="39" r="2.2" fill="white" />
-                <line x1="21" y1="39" x2="33" y2="39" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
-                {/* Checkmark dourado grande */}
-                <path
-                  d="M18 47 L26 55 L44 36"
-                  fill="none" stroke="#D3AF37" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round"
-                />
-              </svg>
-            </div>
-            <div className="logo-text">
-              <h1>UFA ORGANIZEI</h1>
-              <span className="brand">Organizador</span>
-            </div>
-            <div className="logo-divider" />
-            <div className="header-welcome">
-              <strong>Bem-vindo de volta, {username}!</strong>
-              <span>Organize suas tarefas e fique por dentro da UFA.</span>
-            </div>
+        <div className="flex items-center gap-4 relative z-10">
+          <div className="w-13 h-13 bg-white/10 rounded-2xl flex items-center justify-center border border-white/15 backdrop-blur-md p-2.5 shadow-inner">
+            <svg viewBox="0 0 30 30" fill="none" className="w-8 h-8">
+              <circle cx="10" cy="10" r="7" stroke="white" strokeWidth="1.8" />
+              <circle cx="20" cy="10" r="7" stroke="#D3AF37" strokeWidth="1.8" />
+              <circle cx="15" cy="19" r="7" stroke="white" strokeWidth="1.8" strokeOpacity="0.7" />
+            </svg>
           </div>
-
-          <div className="header-right">
-            <div className="user-pill">
-              <div className="avatar">{initials}</div>
-              <div className="user-info">
-                <span className="uname">{username}</span>
-                <span className="uemail">{session.user.email}</span>
-              </div>
-              <span className="chevron"><ChevronDown size={13} /></span>
-            </div>
-            <button className="btn-dark" onClick={toggleDark} title={isDark ? 'Modo claro' : 'Modo escuro'}>
-              {isDark ? <Sun size={17} /> : <Moon size={17} />}
-            </button>
-            <button className="btn-sair" onClick={() => supabase.auth.signOut()}>
-              <LogOut size={15} /> Sair
-            </button>
+          <div className="text-white">
+            <h1 className="text-lg font-bold tracking-wide leading-none mb-0.5">UFA ORGANIZEI</h1>
+            <span className="text-[#D3AF37] text-xs font-medium tracking-wider">Organizador</span>
+          </div>
+          <div className="w-px h-10 bg-white/20 mx-1 hidden md:block" />
+          <div className="text-white/90 relative z-10 hidden md:block">
+            <strong className="text-sm font-medium block">Bem-vindo de volta, {displayFirstName}!</strong>
+            <span className="text-xs text-white/70">Organize suas tarefas e fique por dentro da UFA.</span>
           </div>
         </div>
 
-        {/* ── BODY ── */}
-        <div className="body">
-
-          {/* ── SIDEBAR ── */}
-          <div className={`sidebar${collapsed ? ' collapsed' : ''}`}>
-            {navItems.map(({ key, Icon, label }) => (
-              <button
-                key={key}
-                className={`nav-item${activeNav === key ? ' active' : ''}`}
-                onClick={() => setActiveNav(key)}
-              >
-                <Icon size={17} style={{ flexShrink: 0 }} />
-                {!collapsed && label}
-              </button>
-            ))}
-            <div className="nav-spacer" />
-            <button className="nav-collapse" onClick={() => setCollapsed(p => !p)}>
-              {collapsed ? <ChevronsRight size={15} /> : <><ChevronsLeft size={15} /> Recolher</>}
-            </button>
+        <div className="flex items-center gap-3 relative z-10">
+          <div className="flex items-center gap-2.5 bg-white/10 border border-white/15 rounded-full py-1.5 pl-1.5 pr-3.5 backdrop-blur-md cursor-pointer hover:bg-white/15 transition-all duration-200">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#D3AF37] to-[#a88620] flex items-center justify-center text-xs font-semibold text-white shrink-0 shadow-sm">
+              {avatarInitials}
+            </div>
+            <div className="text-white hidden sm:block">
+              <span className="text-xs font-medium block">{displayFirstName}</span>
+              <span className="text-[10px] text-white/60 block truncate max-w-[140px]">{userEmail}</span>
+            </div>
+            <ChevronDown size={14} className="text-white/50 ml-0.5" />
           </div>
+          <button
+            onClick={() => supabase.auth.signOut()}
+            className="flex items-center gap-1.5 bg-gradient-to-br from-[#D3AF37] to-[#b8942a] text-white rounded-xl px-4 py-2 text-xs font-semibold transition-all duration-200 hover:opacity-90 shadow-sm"
+          >
+            <LogOut size={14} />
+            <span className="hidden sm:inline">Sair</span>
+          </button>
+        </div>
+      </header>
 
-          {/* ── MAIN ── */}
-          <div className="main">
+      {/* ==================== CORPO DA APLICAÇÃO ==================== */}
+      <div className="flex flex-1 overflow-hidden">
 
-            {/* TAREFAS */}
-            <div className="card">
-              <div className="card-header">
-                <div className="card-header-icon verde">
-                  <ClipboardList size={18} />
+        {/* SIDEBAR */}
+        <aside className="w-[200px] shrink-0 bg-white border-r border-[#e8ebe9] py-5 px-3 flex flex-col gap-1 overflow-y-auto hidden md:flex">
+          <button
+            onClick={() => setActiveTab('inicio')}
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium transition-all duration-150 ${activeTab === 'inicio' ? 'bg-[#00674F] text-white shadow-sm' : 'text-[#5a6b63] hover:bg-[#f0f5f2] hover:text-[#00674F]'
+              }`}
+          >
+            <Home size={16} className="shrink-0" />
+            <span>Início</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('tarefas')}
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium transition-all duration-150 ${activeTab === 'tarefas' ? 'bg-[#00674F] text-white shadow-sm' : 'text-[#5a6b63] hover:bg-[#f0f5f2] hover:text-[#00674F]'
+              }`}
+          >
+            <ListTodo size={16} className="shrink-0" />
+            <span>Tarefas</span>
+          </button>
+          <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-not-allowed text-xs font-normal text-gray-300">
+            <Calendar size={16} className="shrink-0" />
+            <span>Agenda</span>
+          </div>
+          <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-not-allowed text-xs font-normal text-gray-300">
+            <Speakerphone size={16} className="shrink-0" />
+            <span>Avisos</span>
+          </div>
+          <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-not-allowed text-xs font-normal text-gray-300">
+            <LayoutGrid size={16} className="shrink-0" />
+            <span>Feed</span>
+          </div>
+          <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-not-allowed text-xs font-normal text-gray-300">
+            <BarChart size={16} className="shrink-0" />
+            <span>Relatórios</span>
+          </div>
+          <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-not-allowed text-xs font-normal text-gray-300">
+            <Settings size={16} className="shrink-0" />
+            <span>Configurações</span>
+          </div>
+          <div className="flex-1" />
+          <div className="flex items-center gap-2 px-3 py-2 rounded-xl text-[#8a9e94] text-[11px] font-medium opacity-50">
+            <ChevronLeft size={14} />
+            <span>Recolher</span>
+          </div>
+        </aside>
+
+        {/* CONTEÚDO PRINCIPAL RENDERIZADO POR ABA */}
+        <main className="flex-1 p-[22px] grid grid-cols-1 lg:grid-cols-3 gap-[18px] overflow-auto">
+
+          <div className="lg:col-span-2 flex flex-col gap-4">
+
+            {/* ABA: INÍCIO */}
+            {activeTab === 'inicio' && (
+              <div className="space-y-5">
+                <div className="bg-white rounded-2xl border border-[#e4e9e6] p-5 flex justify-between items-center shadow-sm">
+                  <div>
+                    <h2 className="text-[17px] font-bold text-[#1a2e26]">Olá, {displayFirstName}! 👋</h2>
+                    <p className="text-xs text-[#8a9e94] mt-0.5">Aqui está um resumo do seu dia na UFA.</p>
+                  </div>
+                  <button onClick={() => setActiveTab('tarefas')} className="text-xs font-semibold text-[#00674F] border border-[#00674F] rounded-xl px-3 py-1.5 hover:bg-[#f0f5f2] transition-colors">
+                    Ver todas as tarefas
+                  </button>
                 </div>
-                <div>
-                  <div className="card-title">Minhas Tarefas Acadêmicas</div>
-                  <div className="card-subtitle">{pendingCount} {pendingCount === 1 ? 'tarefa pendente' : 'tarefas pendentes'}</div>
+
+                {/* 4 Mini Cards Superiores */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
+                  <div className="bg-white border border-[#e4e9e6] p-4 rounded-2xl flex items-center gap-3.5 shadow-sm">
+                    <div className="w-10 h-10 rounded-xl bg-[#e8f5ef] flex items-center justify-center shrink-0">
+                      <ListTodo size={18} className="text-[#00674F]" />
+                    </div>
+                    <div>
+                      <div className="text-lg font-bold text-gray-800 leading-none">{pendingTasksCount}</div>
+                      <div className="text-[11px] font-medium text-[#1a2e26] mt-0.5">Tarefas pendentes</div>
+                      <div className="text-[10px] text-[#9aada5] mt-px truncate">
+                        {pendingTasksCount === 0 ? 'Nada para fazer! 🎉' : 'Foco nos estudos!'}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-white border border-[#e4e9e6] p-4 rounded-2xl flex items-center gap-3.5 shadow-sm">
+                    <div className="w-10 h-10 rounded-xl bg-[#fdf5e0] flex items-center justify-center shrink-0">
+                      <Calendar size={18} className="text-[#D3AF37]" />
+                    </div>
+                    <div>
+                      <div className="text-lg font-bold text-gray-800 leading-none">0</div>
+                      <div className="text-[11px] font-medium text-[#1a2e26] mt-0.5">Eventos hoje</div>
+                      <div className="text-[10px] text-[#9aada5] mt-px">Nenhum evento hoje</div>
+                    </div>
+                  </div>
+
+                  <div className="bg-white border border-[#e4e9e6] p-4 rounded-2xl flex items-center gap-3.5 shadow-sm">
+                    <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center shrink-0">
+                      <Bell size={18} className="text-blue-600" />
+                    </div>
+                    <div>
+                      <div className="text-lg font-bold text-gray-800 leading-none">2</div>
+                      <div className="text-[11px] font-medium text-[#1a2e26] mt-0.5">Avisos não lidos</div>
+                      <div className="text-[10px] text-[#9aada5] mt-px">Fique por dentro</div>
+                    </div>
+                  </div>
+
+                  <div className="bg-white border border-[#e4e9e6] p-4 rounded-2xl flex items-center gap-3.5 shadow-sm">
+                    <div className="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center shrink-0">
+                      <Award size={18} className="text-purple-600" />
+                    </div>
+                    <div>
+                      <div className="text-lg font-bold text-gray-800 leading-none">85%</div>
+                      <div className="text-[11px] font-medium text-[#1a2e26] mt-0.5">Produtividade</div>
+                      <div className="text-[10px] text-[#9aada5] mt-px">Continue assim!</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Eventos e Destaques */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="bg-white border border-[#e4e9e6] p-5 rounded-2xl shadow-sm flex flex-col h-48">
+                    <div className="flex justify-between items-center mb-4">
+                      <span className="text-xs font-bold text-[#1a2e26] flex items-center gap-2">
+                        <Calendar size={14} className="text-[#00674F]" /> Próximos eventos
+                      </span>
+                      <span className="text-[11px] font-semibold text-[#00674F] cursor-not-allowed opacity-50">Ver agenda</span>
+                    </div>
+                    <div className="flex-1 flex flex-col items-center justify-center text-center">
+                      <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center mb-1.5 text-gray-400">✓</div>
+                      <div className="text-[11px] font-medium text-[#4a5e56]">Nenhum evento próximo</div>
+                      <div className="text-[10px] text-[#9aada5] mt-0.5">Você não tem eventos agendados.</div>
+                    </div>
+                  </div>
+
+                  <div className="bg-white border border-[#e4e9e6] p-5 rounded-2xl shadow-sm flex flex-col h-48">
+                    <div className="flex justify-between items-center mb-4">
+                      <span className="text-xs font-bold text-[#1a2e26] flex items-center gap-2">
+                        <ListTodo size={14} className="text-[#00674F]" /> Tarefas em destaque
+                      </span>
+                      <span onClick={() => setActiveTab('tarefas')} className="text-[11px] font-semibold text-[#00674F] cursor-pointer">Ver todas</span>
+                    </div>
+                    <div className="flex-1 flex flex-col items-center justify-center text-center">
+                      <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center mb-1.5 text-gray-400">★</div>
+                      <div className="text-[11px] font-medium text-[#4a5e56]">Nenhuma tarefa em destaque</div>
+                      <div className="text-[10px] text-[#9aada5] mt-0.5">Crie e marque tarefas importantes.</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Hábitos Diários */}
+                <div className="bg-white border border-[#e4e9e6] p-5 rounded-2xl shadow-sm">
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="text-xs font-bold text-[#1a2e26] flex items-center gap-2">
+                      <Flame size={14} className="text-[#00674F]" /> Seus hábitos
+                    </span>
+                    <span className="text-[11px] font-semibold text-[#00674F] cursor-not-allowed opacity-50">Ver relatório</span>
+                  </div>
+                  <p className="text-[11px] text-[#9aada5] mb-4">Acompanhe seus hábitos diários</p>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="bg-[#fafcfb] border border-[#e8ede9] p-3 rounded-xl flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-green-50 flex items-center justify-center text-xs font-bold text-[#00674F]">0%</div>
+                      <div>
+                        <div className="text-[11px] font-bold text-gray-700">Estudar</div>
+                        <div className="text-[10px] text-gray-400">0/0 dias</div>
+                      </div>
+                    </div>
+                    <div className="bg-[#fafcfb] border border-[#e8ede9] p-3 rounded-xl flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-amber-50 flex items-center justify-center text-xs font-bold text-[#D3AF37]">0%</div>
+                      <div>
+                        <div className="text-[11px] font-bold text-gray-700">Exercícios</div>
+                        <div className="text-[10px] text-gray-400">0/0 dias</div>
+                      </div>
+                    </div>
+                    <div className="bg-[#fafcfb] border border-[#e8ede9] p-3 rounded-xl flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center text-xs font-bold text-blue-600">0%</div>
+                      <div>
+                        <div className="text-[11px] font-bold text-gray-700">Leitura</div>
+                        <div className="text-[10px] text-gray-400">0/0 dias</div>
+                      </div>
+                    </div>
+                    <div className="bg-[#fafcfb] border border-[#e8ede9] p-3 rounded-xl flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-purple-50 flex items-center justify-center text-xs font-bold text-purple-600">0%</div>
+                      <div>
+                        <div className="text-[11px] font-bold text-gray-700">Projetos</div>
+                        <div className="text-[10px] text-gray-400">0/0 dias</div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
+            )}
 
-              <form className="input-row" onSubmit={handleAddTask}>
-                <input
-                  className="task-input"
-                  type="text"
-                  placeholder="Ex: Estudar para P1 de Física"
-                  value={newTaskTitle}
-                  onChange={e => setNewTaskTitle(e.target.value)}
-                  required
-                />
-                <input
-                  className="date-input"
-                  type="date"
-                  value={newTaskDate}
-                  onChange={e => setNewTaskDate(e.target.value)}
-                />
-                <button className="btn-add" type="submit" disabled={loading}>
-                  <Plus size={16} /> Adicionar
-                </button>
-              </form>
-
-              {tasks.length === 0 ? (
-                <div className="empty-state">
-                  <div className="empty-ilu">
-                    <div className="empty-ilu-inner">
-                      <div className="check-line"><div className="check-dot done" /><div className="check-bar" /></div>
-                      <div className="check-line"><div className="check-dot" /><div className="check-bar" style={{ background: '#e0ece7' }} /></div>
-                      <div className="check-line"><div className="check-dot" /><div className="check-bar" style={{ background: '#e0ece7', width: '60%' }} /></div>
-                    </div>
-                    <div className="coin"><Check size={13} /></div>
+            {/* ABA: TAREFAS */}
+            {activeTab === 'tarefas' && (
+              <div className="bg-white rounded-2xl border border-[#e4e9e6] p-6 flex flex-col shadow-sm h-full min-h-[480px]">
+                <div className="flex items-center gap-2.5 mb-5">
+                  <div className="w-9 h-9 rounded-xl bg-[#e8f5ef] flex items-center justify-center shrink-0">
+                    <ListTodo size={18} className="text-[#00674F]" />
                   </div>
-                  <div className="empty-title">Nenhuma tarefa cadastrada.</div>
-                  <div className="empty-sub">Adicione uma nova tarefa para começar!</div>
+                  <div>
+                    <div className="text-[15px] font-medium text-[#1a2e26]">Minhas Tarefas Acadêmicas</div>
+                    <div className="text-xs text-[#8a9e94] mt-0.5">{pendingTasksCount} tarefas pendentes</div>
+                  </div>
                 </div>
-              ) : (
-                <div className="task-list">
-                  {tasks.map(task => (
-                    <div key={task.id} className={`task-item${task.is_completed ? ' done' : ''}`}>
-                      <div className="task-left">
-                        <button
-                          className={`task-check${task.is_completed ? ' done' : ''}`}
-                          onClick={() => toggleTaskComplete(task.id, task.is_completed)}
-                        >
-                          {task.is_completed ? <CheckCircle size={20} /> : <Circle size={20} />}
-                        </button>
-                        <div className="task-info">
-                          <div className={`task-title${task.is_completed ? ' done' : ''}`}>{task.title}</div>
-                          {task.due_date && (
-                            <div className="task-date">
-                              <Calendar size={11} />
-                              Entrega: {new Date(task.due_date).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}
-                            </div>
-                          )}
+
+                <form onSubmit={handleAddTask} className="flex flex-col sm:flex-row gap-2.5 mb-5">
+                  <input
+                    type="text"
+                    placeholder="Ex: Estudar para P1 de Física"
+                    value={newTaskTitle}
+                    onChange={(e) => setNewTaskTitle(e.target.value)}
+                    className="flex-1 px-3.5 py-2.5 rounded-xl border border-[#dde5e0] text-xs text-[#1a2e26] bg-[#fafcfb] outline-none transition-colors focus:border-[#00674F] focus:bg-white"
+                    required
+                  />
+                  <input
+                    type="date"
+                    value={newTaskDate}
+                    onChange={(e) => setNewTaskDate(e.target.value)}
+                    className="px-3 py-2.5 rounded-xl border border-[#dde5e0] text-xs text-[#6a7d74] bg-[#fafcfb] outline-none sm:w-[140px]"
+                  />
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="flex items-center justify-center gap-1.5 bg-[#00674F] text-white rounded-xl px-4 py-2.5 text-xs font-semibold whitespace-nowrap transition-colors hover:bg-[#005040] disabled:opacity-50"
+                  >
+                    <Plus size={14} />
+                    <span>Adicionar</span>
+                  </button>
+                </form>
+
+                <div className="flex-1 overflow-y-auto space-y-2.5 pr-1 max-h-[400px]">
+                  {tasks.length === 0 ? (
+                    <div className="py-12 flex flex-col items-center justify-center gap-2.5">
+                      <div className="w-20 h-20 relative">
+                        <div className="w-14 h-[68px] border-[2.5px] border-[#c8e0d6] rounded-lg bg-[#f0f7f3] flex flex-col gap-1.5 p-3">
+                          <div className="h-1 bg-[#b0d4c4] rounded flex items-center gap-1"><div className="w-1 h-1 rounded-full bg-[#00674F]" /><div className="w-full h-[2px] bg-[#c8e0d6] rounded" /></div>
+                          <div className="h-1 bg-transparent rounded flex items-center gap-1"><div className="w-1 h-1 rounded-full border border-[#c8e0d6]" /><div className="w-3/4 h-[2px] bg-[#e0ece7] rounded" /></div>
+                        </div>
+                        <div className="w-[26px] h-[26px] rounded-full bg-[#D3AF37] border-2 border-white absolute -bottom-1.5 -right-2 flex items-center justify-center shadow-sm">
+                          <Check size={13} className="text-white font-bold" />
                         </div>
                       </div>
-                      <button className="task-delete" onClick={() => deleteTask(task.id)}>
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M10 11v6" /><path d="M14 11v6" /><path d="M9 6V4h6v2" />
-                        </svg>
-                      </button>
+                      <div className="text-xs font-medium text-[#4a5e56]">Nenhuma tarefa cadastrada.</div>
+                      <div className="text-[11px] text-[#9aada5]">Adicione uma nova tarefa para começar!</div>
                     </div>
-                  ))}
+                  ) : (
+                    tasks.map((task) => (
+                      <div
+                        key={task.id}
+                        className={`flex items-center justify-between p-3.5 rounded-xl border transition-all ${task.is_completed ? 'bg-gray-50/70 border-gray-100 opacity-60' : 'bg-[#fafcfb] border-[#e8ede9] hover:bg-[#f0f5f2]'
+                          }`}
+                      >
+                        <div className="flex items-center space-x-3 flex-1 min-w-0">
+                          <button
+                            onClick={() => toggleTaskComplete(task.id, task.is_completed)}
+                            className="text-gray-400 hover:text-[#00674F] transition shrink-0"
+                          >
+                            {task.is_completed ? (
+                              <CheckCircle className="text-[#00674F]" size={18} />
+                            ) : (
+                              <Circle size={18} />
+                            )}
+                          </button>
+                          <div className="min-w-0 flex-1">
+                            <p className={`text-xs font-medium text-[#1a2e26] truncate ${task.is_completed ? 'line-through text-gray-400' : ''}`}>
+                              {task.title}
+                            </p>
+                            {task.due_date && (
+                              <span className="inline-flex items-center space-x-1 text-[10px] text-gray-400 mt-0.5">
+                                <Calendar size={10} />
+                                <span>Entrega: {new Date(task.due_date).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}</span>
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => deleteTask(task.id)}
+                          className="text-gray-400 hover:text-red-500 p-1 transition shrink-0 ml-2"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    ))
+                  )}
                 </div>
+              </div>
+            )}
+          </div>
+
+          {/* PAINEL DO FEED (FIXO À DIREITA) */}
+          <div className="bg-white rounded-2xl border border-[#e4e9e6] p-6 flex flex-col h-full min-h-0 shadow-sm relative overflow-hidden">
+            <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-[#00674F] to-[#D3AF37]" />
+
+            <div className="flex items-center gap-2.5 mb-3.5">
+              <div className="w-9 h-9 rounded-xl bg-[#fdf5e0] flex items-center justify-center shrink-0">
+                <Speakerphone size={18} className="text-[#D3AF37]" />
+              </div>
+              <div>
+                <div className="text-[15px] font-medium text-[#1a2e26]">Feed Central da UFA</div>
+                <div className="text-[11px] text-[#8a9e94] mt-0.5">Fique por dentro das novidades da comunidade.</div>
+              </div>
+            </div>
+
+            <form onSubmit={handleCreatePost} className="flex gap-2 mb-4">
+              <input
+                type="text"
+                placeholder="O que está acontecendo no campus?"
+                value={newPostContent}
+                onChange={(e) => setNewPostContent(e.target.value)}
+                className="flex-1 px-3 py-2 border border-[#dde5e0] rounded-xl text-xs bg-[#fafcfb] outline-none focus:border-[#D3AF37]"
+                required
+              />
+              <button
+                type="submit"
+                className="w-9 h-9 rounded-xl bg-[#D3AF37] flex items-center justify-center transition-colors hover:bg-[#b8942a] text-white shrink-0 shadow-sm"
+              >
+                <Send size={14} />
+              </button>
+            </form>
+
+            <div className="flex-1 overflow-y-auto space-y-2 pr-1 scrollbar-thin">
+              {posts.length === 0 ? (
+                <p className="text-center text-gray-400 text-[11px] py-12">Nenhuma publicação ainda. Seja o primeiro!</p>
+              ) : (
+                posts.map((post) => {
+                  const isOwnPost = post.user_id === session?.user?.id;
+                  return (
+                    <div
+                      key={post.id}
+                      className="p-3 rounded-xl bg-[#fafcfb] border border-[#e8ede9] flex gap-2.5 hover:bg-[#f0f5f2] transition-colors cursor-pointer"
+                    >
+                      <div className={`w-[3px] rounded-full shrink-0 ${isOwnPost ? 'bg-[#00674F]' : 'bg-[#D3AF37]'}`} />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs font-medium text-[#1a2e26] flex items-center gap-1.5">
+                          {post.profiles?.username || 'Estudante UFA'}
+                          <span className="text-[10px] text-[#aabdb5] font-normal">
+                            {post.created_at ? new Date(post.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : ''}
+                          </span>
+                        </div>
+                        <p className="text-xs text-[#5a6b63] mt-1 whitespace-pre-wrap break-words leading-relaxed">
+                          {post.content}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })
               )}
             </div>
-
-            {/* FEED */}
-            <div className="card feed-card">
-              <div className="feed-top-bar" />
-              <div className="card-header" style={{ marginBottom: 14 }}>
-                <div className="card-header-icon dourado">
-                  <Megaphone size={18} />
-                </div>
-                <div>
-                  <div className="card-title">Feed Central da UFA</div>
-                  <div className="card-subtitle">Fique por dentro das novidades da comunidade.</div>
-                </div>
-              </div>
-
-              <form className="feed-input-row" onSubmit={handleCreatePost}>
-                <input
-                  className="feed-input"
-                  type="text"
-                  placeholder="O que está acontecendo no campus?"
-                  value={newPostContent}
-                  onChange={e => setNewPostContent(e.target.value)}
-                  required
-                />
-                <button className="btn-send" type="submit">
-                  <Send size={15} />
-                </button>
-              </form>
-
-              <div className="feed-scroll">
-                {posts.length === 0 ? (
-                  <div className="feed-empty">Nenhuma publicação ainda. Seja o primeiro!</div>
-                ) : (
-                  posts.map((post, i) => (
-                    <div key={post.id} className="post">
-                      <div className={`post-accent ${i % 2 === 0 ? 'v' : 'd'}`} />
-                      <div className="post-body">
-                        <div className="post-author">
-                          {post.username}
-                          <span className="post-time">{timeAgo(post.created_at)}</span>
-                        </div>
-                        <div className="post-content">{post.content}</div>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-
           </div>
-        </div>
+
+        </main>
       </div>
-    </>
+    </div>
   )
 }
