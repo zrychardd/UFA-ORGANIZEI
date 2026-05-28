@@ -30,7 +30,7 @@ export default function Dashboard({ session }) {
   const [newEventLocation, setNewEventLocation] = useState('')
   const [newEventCategory, setNewEventCategory] = useState('Acadêmico')
 
-  // Filtros de Categorias da Agenda (Restaurado com Sucesso)
+  // Filtros de Categorias da Agenda
   const [visibleCategories, setVisibleCategories] = useState({
     'Acadêmico': true,
     'Pessoal': true,
@@ -295,17 +295,26 @@ export default function Dashboard({ session }) {
     }
   }
 
-  // Estilos de Categorias para o mural de Avisos
-  const getNoticeCategoryStyle = (cat) => {
+  // Helper simples inline para estilizar as categorias de avisos de forma segura
+  const getNoticeTheme = (cat) => {
     switch (cat) {
-      case 'Acadêmico': return { bg: 'bg-[#e8f5ef]', text: 'text-[#00674F]', icon: <BookOpen size={14} /> }
-      case 'Administrativo': return { bg: 'bg-emerald-50', text: 'text-emerald-700', icon: <Building size={14} /> }
-      case 'Eventos': return { bg: 'bg-amber-50', text: 'text-amber-600', icon: <Users size={14} /> }
-      case 'Bolsas e Oportunidades': return { bg: 'bg-blue-50', text: 'text-blue-600', icon: <Wallet size={14} /> }
-      case 'Infraestrutura': return { bg: 'bg-orange-50', text: 'text-orange-600', icon: <Wrench size={14} /> }
-      default: return { bg: 'bg-gray-50', text: 'text-gray-600', icon: <Megaphone size={14} /> }
+      case 'Acadêmico': return { bg: 'bg-[#e8f5ef]', text: 'text-[#00674F]' }
+      case 'Administrativo': return { bg: 'bg-emerald-50', text: 'text-emerald-700' }
+      case 'Eventos': return { bg: 'bg-amber-50', text: 'text-amber-600' }
+      case 'Bolsas e Oportunidades': return { bg: 'bg-blue-50', text: 'text-blue-600' }
+      case 'Infraestrutura': return { bg: 'bg-orange-50', text: 'text-orange-600' }
+      default: return { bg: 'bg-gray-50', text: 'text-gray-600' }
     }
   }
+
+  const filteredAnnouncements = announcements.filter(item => {
+    const matchCategory = selectedCategoryFilter === 'Todos' || item.category === selectedCategoryFilter;
+    const matchSearch = item.title.toLowerCase().includes(searchQuery.toLowerCase()) || item.content.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchCategory && matchSearch;
+  })
+
+  const featuredNotice = announcements.find(item => item.is_featured) || announcements[0];
+  const getCategoryCount = (cat) => announcements.filter(item => item.category === cat).length;
 
   // Geração da grade de dias para a Agenda (Maio 2024)
   const daysInCalendar = []
@@ -689,7 +698,7 @@ export default function Dashboard({ session }) {
               </div>
             )}
 
-            {/* ==================== RENDER: ABA AVISOS ==================== */}
+            {/* ==================== RENDER: ABA AVISOS (FIXADO E SEGURO) ==================== */}
             {activeTab === 'avisos' && (
               <div className="bg-white rounded-2xl border border-[#e4e9e6] p-6 flex flex-col shadow-sm space-y-5">
 
@@ -763,7 +772,7 @@ export default function Dashboard({ session }) {
                     </div>
                   ) : (
                     filteredAnnouncements.map((item) => {
-                      const style = getNoticeCategoryStyle(item.category);
+                      const theme = getNoticeTheme(item.category);
                       const isOwnNotice = item.user_id === session?.user?.id;
                       return (
                         <div
@@ -771,8 +780,9 @@ export default function Dashboard({ session }) {
                           className="bg-white border border-[#e4e9e6] rounded-xl p-4 flex items-center justify-between hover:border-gray-300 transition-all shadow-sm group"
                         >
                           <div className="flex items-start gap-4 min-w-0 flex-1">
-                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${style.bg} ${style.text}`}>
-                              {style.icon}
+                            {/* Bloco de Icone Estático Seguro contra Quebras de biblioteca */}
+                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${theme.bg} ${theme.text}`}>
+                              <Megaphone size={14} />
                             </div>
                             <div className="min-w-0 flex-1 pr-4">
                               <div className="flex items-center gap-2">
@@ -782,7 +792,7 @@ export default function Dashboard({ session }) {
                               <p className="text-[11px] text-gray-500 mt-1 whitespace-pre-wrap leading-relaxed break-words">{item.content}</p>
 
                               <div className="flex items-center gap-3 mt-2 text-[10px] text-gray-400 font-medium">
-                                <span className={`px-2 py-0.5 rounded-full font-bold ${style.bg} ${style.text}`}>{item.category}</span>
+                                <span className={`px-2 py-0.5 rounded-full font-bold ${theme.bg} ${theme.text}`}>{item.category}</span>
                                 <span>Por: <strong className="text-gray-500">{item.username || 'Estudante'}</strong></span>
                                 <span>•</span>
                                 <span>{new Date(item.created_at).toLocaleDateString('pt-BR')}</span>
@@ -861,7 +871,7 @@ export default function Dashboard({ session }) {
                       return (
                         <label key={cat} className="flex items-center justify-between cursor-pointer select-none">
                           <div className="flex items-center gap-2.5 text-xs font-medium text-gray-600">
-                            <input type="checkbox" checked={visibleCategories[cat]} onChange={() => setVisibleCategories(prev => ({ ...prev, [cat]: !prev[cat] }))} className="rounded border-gray-300 text-[#00674F] w-3.5 h-3.5" />
+                            <input type="checkbox" checked={visibleCategories[cat]} onChange={(e) => setVisibleCategories(prev => ({ ...prev, [cat]: e.target.checked }))} className="rounded border-gray-300 text-[#00674F] w-3.5 h-3.5" />
                             <span>{cat}</span>
                           </div>
                           <div className={`w-2 h-2 rounded-full ${colors.dot}`} />
