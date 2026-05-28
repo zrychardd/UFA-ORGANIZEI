@@ -18,7 +18,7 @@ export default function Dashboard({ session }) {
   const [newTaskTitle, setNewTaskTitle] = useState('')
   const [newTaskDate, setNewTaskDate] = useState('')
 
-  // Estados Visuais do Modal de Tarefas (Para manter o design rico)
+  // Estados Visuais do Modal de Tarefas
   const [newTaskDescription, setNewTaskDescription] = useState('')
   const [newTaskTime, setNewTaskTime] = useState('')
   const [newTaskDifficulty, setNewTaskDifficulty] = useState('Média')
@@ -161,7 +161,13 @@ export default function Dashboard({ session }) {
     setLoading(true)
     const { error } = await supabase
       .from('tasks')
-      .insert([{ user_id: session.user.id, title: newTaskTitle, due_date: newTaskDate || null, is_completed: false }])
+      .insert([{
+        user_id: session.user.id,
+        title: newTaskTitle,
+        due_date: newTaskDate || null,
+        is_completed: false,
+        difficulty: newTaskDifficulty // AGORA SALVA A DIFICULDADE DE VERDADE
+      }])
 
     if (error) alert('Erro ao criar tarefa: ' + error.message)
     else {
@@ -170,6 +176,7 @@ export default function Dashboard({ session }) {
       setNewTaskDate('')
       setNewTaskDescription('')
       setNewTaskTime('')
+      setNewTaskDifficulty('Média')
       setShowTaskModal(false)
       fetchTasks()
     }
@@ -535,7 +542,7 @@ export default function Dashboard({ session }) {
                   </div>
                 </div>
 
-                {/* Barra de Filtros e Ações (COM O BOTÃO "+ Adicionar tarefa") */}
+                {/* Barra de Filtros e Ações */}
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mb-6">
                   <div className="flex items-center gap-2 overflow-x-auto scrollbar-none pb-1 lg:pb-0">
                     <button className="px-3.5 py-1.5 bg-[#00674F] text-white rounded-lg text-xs font-semibold flex items-center gap-2 whitespace-nowrap shadow-sm">
@@ -552,7 +559,7 @@ export default function Dashboard({ session }) {
                     <button className="px-3.5 py-1.5 bg-white border border-[#dde5e0] text-gray-600 hover:bg-gray-50 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors">
                       <SlidersHorizontal size={14} /> Filtros
                     </button>
-                    {/* NOVO BOTÃO QUE ABRE O MODAL */}
+                    {/* BOTÃO QUE ABRE O MODAL */}
                     <button onClick={() => setShowTaskModal(true)} className="px-4 py-1.5 bg-[#00674F] text-white rounded-lg text-xs font-bold hover:bg-[#005040] transition-colors shadow-sm flex items-center gap-1.5">
                       <Plus size={14} /> Adicionar tarefa
                     </button>
@@ -593,11 +600,11 @@ export default function Dashboard({ session }) {
                             </div>
                           </div>
 
-                          {/* Coluna 2: Metadados (Prioridade, Data, Status) - Escondidos no Mobile */}
+                          {/* Coluna 2: Metadados (Prioridade DINÂMICA, Data, Status) - Escondidos no Mobile */}
                           <div className="flex items-center gap-5 shrink-0 hidden lg:flex ml-4">
                             <div className="flex items-center gap-1.5 w-20">
-                              <span className={`w-1.5 h-1.5 rounded-full ${task.is_completed ? 'bg-gray-300' : 'bg-amber-500'}`}></span>
-                              <span className={`text-[11px] font-bold ${task.is_completed ? 'text-gray-400' : 'text-gray-600'}`}>Média</span>
+                              <span className={`w-1.5 h-1.5 rounded-full ${task.is_completed ? 'bg-gray-300' : (task.difficulty === 'Alta' ? 'bg-red-500' : task.difficulty === 'Baixa' ? 'bg-emerald-500' : 'bg-amber-500')}`}></span>
+                              <span className={`text-[11px] font-bold ${task.is_completed ? 'text-gray-400' : 'text-gray-600'}`}>{task.difficulty || 'Média'}</span>
                             </div>
                             <div className={`flex items-center gap-1.5 w-24 text-[11px] font-semibold ${task.is_completed ? 'text-gray-400' : 'text-gray-500'}`}>
                               <Calendar size={12} />
@@ -779,7 +786,7 @@ export default function Dashboard({ session }) {
             )}
           </div>
 
-          {/* ==================== COLUNA DA DIREITA ==================== */}
+          {/* ==================== COLUNA DA DIREITA (DESIGN PREMIUM FIEL AO ANEXO 2) ==================== */}
           <div className="space-y-6">
             {activeTab === 'agenda' ? (
               <>
