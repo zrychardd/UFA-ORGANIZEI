@@ -56,13 +56,12 @@ O app segue a identidade oficial da UFABC — verde esmeralda `#00674F` e dourad
 
 1. Acesse **[organizador-ufabc-zmyd.vercel.app](https://organizador-ufabc-zmyd.vercel.app)**
 2. Crie sua conta com e-mail e senha
-3. Confirme o e-mail (verifique sua caixa de entrada)
-4. Pronto — comece a organizar!
+3. Pronto — comece a organizar!
 
 ---
 
 <div align="center">
 
-Feito com 💚 para os estudantes da UFABC
+Feito com 💚 para os estudantes 
 
 </div>
