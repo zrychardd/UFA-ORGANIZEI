@@ -325,79 +325,111 @@ export default function Dashboard({ session }) {
               </div>
             )}
 
-            {/* ==================== ABA AGENDA REMONTADA (DESIGN PREMIUM CORRIGIDO) ==================== */}
+            {/* ==================== ABA AGENDA — REDESIGN PREMIUM ==================== */}
             {activeTab === 'agenda' && (
-              <div className="bg-white rounded-2xl border border-[#e4e9e6] p-6 flex flex-col shadow-sm animate-fade-in">
-                {/* Topo informativo */}
+              <div className="bg-white rounded-2xl border border-[#e4e9e6] p-6 flex flex-col shadow-sm">
+
+                {/* Cabeçalho */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-9 h-9 rounded-xl bg-[#e8f5ef] flex items-center justify-center shrink-0">
-                      <Calendar size={18} className="text-[#00674F]" />
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-[#e8f5ef] flex items-center justify-center shrink-0">
+                      <Calendar size={20} className="text-[#00674F]" />
                     </div>
                     <div>
-                      <div className="text-[15px] font-bold text-[#1a2e26]">Minha Agenda</div>
+                      <div className="text-[16px] font-bold text-[#1a2e26]">Minha Agenda</div>
                       <div className="text-xs text-[#8a9e94] mt-0.5">Visualize e gerencie seus compromissos.</div>
                     </div>
                   </div>
-                  <button onClick={() => setShowEventModal(true)} className="flex items-center justify-center gap-1.5 bg-[#00674F] hover:bg-[#005040] text-white rounded-xl px-4 py-2.5 text-xs font-bold shadow-sm transition-all">
-                    <Plus size={14} /><span>Novo evento</span>
+                  <button
+                    onClick={() => setShowEventModal(true)}
+                    className="flex items-center gap-1.5 bg-[#00674F] hover:bg-[#005040] text-white rounded-xl px-4 py-2.5 text-xs font-bold shadow-sm transition-all"
+                  >
+                    <Plus size={14} /> Novo evento
                   </button>
                 </div>
 
-                {/* Controles superiores de período */}
-                <div className="flex flex-wrap items-center justify-between gap-3 bg-[#fafcfb] border border-[#e8ede9] p-3 rounded-xl mb-4">
+                {/* Barra de controles: Hoje / setas / título / Mês·Semana·Dia */}
+                <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
                   <div className="flex items-center gap-1.5">
-                    <button className="px-3 py-1.5 bg-white border border-[#dde5e0] rounded-lg text-xs font-medium text-gray-600 hover:bg-gray-50">Hoje</button>
-                    <button className="p-1.5 bg-white border border-[#dde5e0] rounded-lg text-xs text-gray-600 hover:bg-gray-50">&lt;</button>
-                    <button className="p-1.5 bg-white border border-[#dde5e0] rounded-lg text-xs text-gray-600 hover:bg-gray-50">&gt;</button>
+                    <button className="px-3 py-1.5 bg-white border border-[#dde5e0] rounded-lg text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors">
+                      Hoje
+                    </button>
+                    <button className="p-1.5 bg-white border border-[#dde5e0] rounded-lg text-gray-500 hover:bg-gray-50 transition-colors">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
+                    </button>
+                    <button className="p-1.5 bg-white border border-[#dde5e0] rounded-lg text-gray-500 hover:bg-gray-50 transition-colors">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg>
+                    </button>
                   </div>
-                  <div className="text-sm font-bold text-[#1a2e26] tracking-wide">Maio 2024</div>
-                  <div className="flex bg-gray-100 rounded-lg p-0.5 border border-gray-200">
+
+                  <div className="flex items-center gap-1.5 text-sm font-bold text-[#1a2e26]">
+                    Maio 2024
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
+                  </div>
+
+                  <div className="flex bg-[#f3f6f4] rounded-lg p-0.5 border border-[#e4e9e6]">
                     <button className="px-3 py-1 bg-white text-[#00674F] font-bold rounded-md text-xs shadow-sm">Mês</button>
-                    <button className="px-3 py-1 text-gray-500 font-medium rounded-md text-xs cursor-not-allowed">Semana</button>
-                    <button className="px-3 py-1 text-gray-500 font-medium rounded-md text-xs cursor-not-allowed">Dia</button>
+                    <button className="px-3 py-1 text-gray-400 font-medium rounded-md text-xs">Semana</button>
+                    <button className="px-3 py-1 text-gray-400 font-medium rounded-md text-xs">Dia</button>
                   </div>
                 </div>
 
-                {/* Grade de dias da semana (DOM, SEG...) */}
-                <div className="grid grid-cols-7 text-center mb-2 text-[10px] font-bold text-gray-400 tracking-wider">
-                  <div>DOM</div><div>SEG</div><div>TER</div><div>QUA</div><div>QUI</div><div>SEX</div><div>SÁB</div>
+                {/* Cabeçalho dias da semana */}
+                <div className="grid grid-cols-7 mb-1">
+                  {['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB'].map(d => (
+                    <div key={d} className="text-center text-[10px] font-bold text-[#8a9e94] tracking-widest py-2">{d}</div>
+                  ))}
                 </div>
 
-                {/* Grade Fina de Linhas e Caixas Modificadas sem as Bordas Pretas Grossas */}
-                <div className="grid grid-cols-7 gap-px bg-gray-100 border border-gray-200 rounded-xl overflow-hidden p-px">
+                {/* Grade do calendário — estilo Notion/Linear */}
+                <div className="grid grid-cols-7 border-t border-l border-[#e8ede9] rounded-b-xl overflow-hidden">
                   {daysInCalendar.map((item, idx) => {
-                    const dayEvents = events.filter(e => e.event_date === item.fullDateString && visibleCategories[e.category]);
-                    const isToday = item.dayNumber === 15 && item.isCurrentMonth;
-
+                    const dayEvents = events.filter(e => e.event_date === item.fullDateString && visibleCategories[e.category])
+                    const isToday = item.dayNumber === 15 && item.isCurrentMonth
                     return (
                       <div
                         key={idx}
-                        className={`min-h-[85px] bg-white p-2 flex flex-col justify-between transition-colors ${!item.isCurrentMonth ? 'bg-gray-50/50 opacity-40' : ''
-                          }`}
+                        className={`min-h-[90px] border-r border-b border-[#e8ede9] p-1.5 flex flex-col transition-colors hover:bg-[#fafcfb]
+                          ${!item.isCurrentMonth ? 'bg-[#f9fbfa]' : 'bg-white'}`}
                       >
-                        <div className="flex justify-between items-center">
-                          <span className={`text-[11px] font-bold ${isToday ? 'w-5 h-5 bg-[#00674F] text-white rounded-full flex items-center justify-center shadow-sm' : 'text-gray-400'
+                        {/* Número do dia */}
+                        <div className="mb-1">
+                          <span className={`text-[11px] font-semibold inline-flex items-center justify-center w-5 h-5 rounded-full
+                            ${isToday
+                              ? 'bg-[#00674F] text-white'
+                              : item.isCurrentMonth ? 'text-[#1a2e26]' : 'text-[#c4d0cb]'
                             }`}>
                             {item.dayNumber}
                           </span>
                         </div>
-
-                        {/* Eventos Empilhados e Customizados Condicionalmente */}
-                        <div className="space-y-1 mt-1 flex-1 overflow-y-auto max-h-[55px] scrollbar-none">
+                        {/* Eventos do dia */}
+                        <div className="flex flex-col gap-0.5 overflow-hidden">
                           {dayEvents.map(ev => {
-                            const style = getCategoryStyle(ev.category);
+                            const style = getCategoryStyle(ev.category)
                             return (
                               <div
                                 key={ev.id}
-                                className={`text-[9px] px-1.5 py-0.5 font-bold rounded border-l-2 flex flex-col ${style.bg} ${style.text} ${style.border} leading-tight`}
+                                className={`text-[9px] px-1.5 py-0.5 rounded-md border-l-2 leading-tight ${style.bg} ${style.text} ${style.border}`}
                               >
-                                <span className="truncate">{ev.title}</span>
-                                {ev.event_time && <span className="text-[8px] opacity-75 font-normal">{ev.event_time}</span>}
+                                <div className="font-semibold truncate">{ev.title}</div>
+                                {ev.event_time && <div className="opacity-70 font-normal">{ev.event_time}</div>}
                               </div>
                             )
                           })}
                         </div>
+                      </div>
+                    )
+                  })}
+                </div>
+
+                {/* Legenda de categorias */}
+                <div className="flex items-center gap-4 mt-3 px-1">
+                  {Object.keys(visibleCategories).map(cat => {
+                    const style = getCategoryStyle(cat)
+                    return (
+                      <div key={cat} className="flex items-center gap-1.5 text-[10px] text-[#5a6b63]">
+                        <div className={`w-2 h-2 rounded-full ${style.dot}`} />
+                        {cat}
                       </div>
                     )
                   })}
