@@ -4,7 +4,7 @@ import {
   Plus, CheckCircle, Circle, Trash2, LogOut, Calendar,
   ListTodo, Home, Megaphone, LayoutGrid, BarChart, Settings,
   ChevronLeft, ChevronDown, Check, Bell, Award, Flame, MapPin,
-  Clock, Camera, ToggleRight, Search, SlidersHorizontal, ArrowRight
+  Clock, Camera, ToggleRight, Search, Send
 } from 'lucide-react'
 
 export default function Dashboard({ session }) {
@@ -29,7 +29,7 @@ export default function Dashboard({ session }) {
   const [newEventLocation, setNewEventLocation] = useState('')
   const [newEventCategory, setNewEventCategory] = useState('Acadêmico')
 
-  // Filtros de Categorias da Agenda (Vinculados aos Checkboxes Laterais)
+  // Filtros de Categorias da Agenda
   const [visibleCategories, setVisibleCategories] = useState({
     'Acadêmico': true,
     'Pessoal': true,
@@ -212,7 +212,7 @@ export default function Dashboard({ session }) {
 
   const pendingTasksCount = tasks.filter(task => !task.is_completed).length
 
-  // Estrutura de cores fiel para as tags dentro e fora da grade de calendário
+  // Estilos das tags internas dos dias do calendário
   const getCategoryStyle = (cat) => {
     switch (cat) {
       case 'Acadêmico': return { bg: 'bg-[#e8f5ef]', text: 'text-[#00674F]', border: 'border-[#a3d9c9]', dot: 'bg-[#00674F]' }
@@ -325,10 +325,10 @@ export default function Dashboard({ session }) {
               </div>
             )}
 
-            {/* ==================== ABA AGENDA COMPLETAMENTE RESTAURADA (FIEL AO ANEXO) ==================== */}
+            {/* ==================== ABA AGENDA REMONTADA (DESIGN PREMIUM CORRIGIDO) ==================== */}
             {activeTab === 'agenda' && (
               <div className="bg-white rounded-2xl border border-[#e4e9e6] p-6 flex flex-col shadow-sm animate-fade-in">
-                {/* Cabeçalho Superior da Agenda */}
+                {/* Topo informativo */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
                   <div className="flex items-center gap-2.5">
                     <div className="w-9 h-9 rounded-xl bg-[#e8f5ef] flex items-center justify-center shrink-0">
@@ -344,7 +344,7 @@ export default function Dashboard({ session }) {
                   </button>
                 </div>
 
-                {/* Barra de Controles de Período Restabelecida */}
+                {/* Controles superiores de período */}
                 <div className="flex flex-wrap items-center justify-between gap-3 bg-[#fafcfb] border border-[#e8ede9] p-3 rounded-xl mb-4">
                   <div className="flex items-center gap-1.5">
                     <button className="px-3 py-1.5 bg-white border border-[#dde5e0] rounded-lg text-xs font-medium text-gray-600 hover:bg-gray-50">Hoje</button>
@@ -359,42 +359,41 @@ export default function Dashboard({ session }) {
                   </div>
                 </div>
 
-                {/* Grade dos Dias da Semana Restabelecida */}
-                <div className="grid grid-cols-7 gap-px text-center mb-2 text-[10px] font-bold text-gray-400 tracking-wider">
+                {/* Grade de dias da semana (DOM, SEG...) */}
+                <div className="grid grid-cols-7 text-center mb-2 text-[10px] font-bold text-gray-400 tracking-wider">
                   <div>DOM</div><div>SEG</div><div>TER</div><div>QUA</div><div>QUI</div><div>SEX</div><div>SÁB</div>
                 </div>
 
-                {/* Grade Limpa do Calendário com Estilos Féis */}
-                <div className="grid grid-cols-7 gap-px bg-gray-200 border border-gray-200 rounded-xl overflow-hidden p-px">
+                {/* Grade Fina de Linhas e Caixas Modificadas sem as Bordas Pretas Grossas */}
+                <div className="grid grid-cols-7 gap-px bg-gray-100 border border-gray-200 rounded-xl overflow-hidden p-px">
                   {daysInCalendar.map((item, idx) => {
-                    // Filtra eventos correspondentes ao dia e visíveis nas categorias marcadas
                     const dayEvents = events.filter(e => e.event_date === item.fullDateString && visibleCategories[e.category]);
                     const isToday = item.dayNumber === 15 && item.isCurrentMonth;
 
                     return (
                       <div
                         key={idx}
-                        className={`min-h-[85px] bg-white p-2 flex flex-col justify-between transition-colors ${!item.isCurrentMonth ? 'bg-gray-50/60 opacity-40' : ''
+                        className={`min-h-[85px] bg-white p-2 flex flex-col justify-between transition-colors ${!item.isCurrentMonth ? 'bg-gray-50/50 opacity-40' : ''
                           }`}
                       >
                         <div className="flex justify-between items-center">
-                          <span className={`text-[11px] font-bold ${isToday ? 'w-5 h-5 bg-[#00674F] text-white rounded-full flex items-center justify-center shadow-sm' : 'text-gray-500'
+                          <span className={`text-[11px] font-bold ${isToday ? 'w-5 h-5 bg-[#00674F] text-white rounded-full flex items-center justify-center shadow-sm' : 'text-gray-400'
                             }`}>
                             {item.dayNumber}
                           </span>
                         </div>
 
-                        {/* Eventos Empilhados Dinâmicos com cores de fundo legítimas */}
-                        <div className="space-y-1 mt-1 flex-1 overflow-y-auto max-h-[58px] scrollbar-none">
+                        {/* Eventos Empilhados e Customizados Condicionalmente */}
+                        <div className="space-y-1 mt-1 flex-1 overflow-y-auto max-h-[55px] scrollbar-none">
                           {dayEvents.map(ev => {
                             const style = getCategoryStyle(ev.category);
                             return (
                               <div
                                 key={ev.id}
-                                className={`text-[9px] px-1.5 py-0.5 font-bold rounded border-l-2 flex flex-col ${style.bg} ${style.text} ${style.border} leading-tight truncate`}
+                                className={`text-[9px] px-1.5 py-0.5 font-bold rounded border-l-2 flex flex-col ${style.bg} ${style.text} ${style.border} leading-tight`}
                               >
-                                <span className="truncate">▪ {ev.title}</span>
-                                {ev.event_time && <span className="text-[8px] opacity-75 font-normal ml-2">{ev.event_time}</span>}
+                                <span className="truncate">{ev.title}</span>
+                                {ev.event_time && <span className="text-[8px] opacity-75 font-normal">{ev.event_time}</span>}
                               </div>
                             )
                           })}
@@ -413,61 +412,78 @@ export default function Dashboard({ session }) {
                   <h3 className="text-sm font-bold text-gray-800 mb-4">Informações do perfil</h3>
                   <form onSubmit={handleSaveSettings} className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <input type="text" value={draftFullName} onChange={(e) => setDraftFullName(e.target.value)} className="w-full px-3.5 py-2 border rounded-xl text-xs bg-[#fafcfb]" />
-                      <input type="text" value={draftDisplayName} onChange={(e) => setDraftDisplayName(e.target.value)} className="w-full px-3.5 py-2 border rounded-xl text-xs bg-[#fafcfb]" />
+                      <div>
+                        <label className="text-[10px] font-bold text-gray-400 block mb-1">Nome completo</label>
+                        <input type="text" value={draftFullName} onChange={(e) => setDraftFullName(e.target.value)} className="w-full px-3.5 py-2 border rounded-xl text-xs bg-[#fafcfb] text-gray-700 outline-none focus:border-[#00674F]" />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-bold text-gray-400 block mb-1">Nome de exibição</label>
+                        <input type="text" value={draftDisplayName} onChange={(e) => setDraftDisplayName(e.target.value)} className="w-full px-3.5 py-2 border rounded-xl text-xs bg-[#fafcfb] text-gray-700 outline-none focus:border-[#00674F]" />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-bold text-gray-400 block mb-1">E-mail</label>
+                        <input type="email" value={draftEmail} onChange={(e) => setDraftEmail(e.target.value)} className="w-full px-3.5 py-2 border rounded-xl text-xs bg-[#fafcfb] text-gray-700 outline-none focus:border-[#00674F]" />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-[10px] font-bold text-gray-400 block mb-1">Curso</label>
+                          <input type="text" value={draftCourse} onChange={(e) => setDraftCourse(e.target.value)} className="w-full px-3.5 py-2 border rounded-xl text-xs bg-[#fafcfb] text-gray-700 outline-none focus:border-[#00674F]" />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-bold text-gray-400 block mb-1">Ingresso</label>
+                          <input type="text" value={draftYear} onChange={(e) => setDraftYear(e.target.value)} className="w-full px-3.5 py-2 border rounded-xl text-xs bg-[#fafcfb] text-gray-700 outline-none focus:border-[#00674F]" />
+                        </div>
+                      </div>
                     </div>
-                    <button type="submit" className="bg-[#00674F] text-white text-xs font-bold px-5 py-2.5 rounded-xl">Salvar alterações</button>
+                    <div className="flex justify-end pt-2 border-t">
+                      <button type="submit" disabled={loading} className="bg-[#00674F] text-white text-xs font-bold px-5 py-2.5 rounded-xl shadow-sm">
+                        {loading ? 'Salvando...' : 'Salvar alterações'}
+                      </button>
+                    </div>
                   </form>
                 </div>
               </div>
             )}
           </div>
 
-          {/* ==================== COLUNA DA DIREITA (COMPLETAMENTE FIEL AO ANEXO) ==================== */}
+          {/* COLUNA DA DIREITA */}
           <div className="space-y-4">
             {activeTab === 'agenda' ? (
               <>
-                {/* Bloco Lateral: Próximos Eventos Listados */}
                 <div className="bg-white rounded-2xl border border-[#e4e9e6] p-5 shadow-sm flex flex-col">
                   <div className="flex justify-between items-center mb-4">
                     <span className="text-xs font-bold text-[#1a2e26]">Próximos eventos</span>
                     <span className="text-[11px] font-bold text-[#00674F] cursor-pointer">Ver todos</span>
                   </div>
                   <div className="space-y-2.5 max-h-[320px] overflow-y-auto pr-1">
-                    {events.length === 0 ? (
-                      <p className="text-center text-gray-400 text-xs py-8">Nenhum evento criado.</p>
-                    ) : (
-                      events.map(ev => {
-                        const style = getCategoryStyle(ev.category);
-                        return (
-                          <div key={ev.id} className="p-3 bg-[#fafcfb] border border-[#e8ede9] rounded-xl flex items-center justify-between group">
-                            <div className="flex items-center gap-3 min-w-0">
-                              <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${style.bg} ${style.text}`}>
-                                <Calendar size={14} />
-                              </div>
-                              <div className="min-w-0">
-                                <h4 className="text-xs font-bold text-[#1a2e26] truncate">{ev.title}</h4>
-                                <p className="text-[10px] text-gray-400 mt-0.5 flex items-center gap-1.5">
-                                  {ev.location && <span className="flex items-center gap-0.5"><MapPin size={9} /> {ev.location}</span>}
-                                  {ev.event_time && <span className="flex items-center gap-0.5"><Clock size={9} /> {ev.event_time}</span>}
-                                </p>
-                              </div>
+                    {events.map(ev => {
+                      const style = getCategoryStyle(ev.category);
+                      return (
+                        <div key={ev.id} className="p-3 bg-[#fafcfb] border border-[#e8ede9] rounded-xl flex items-center justify-between group">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${style.bg} ${style.text}`}>
+                              <Calendar size={14} />
                             </div>
-                            <button onClick={() => handleDeleteEvent(ev.id)} className="text-gray-300 hover:text-red-500 p-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <Trash2 size={12} />
-                            </button>
+                            <div className="min-w-0">
+                              <h4 className="text-xs font-bold text-[#1a2e26] truncate">{ev.title}</h4>
+                              <p className="text-[10px] text-gray-400 mt-0.5 flex items-center gap-1.5">
+                                {ev.location && <span className="flex items-center gap-0.5"><MapPin size={9} /> {ev.location}</span>}
+                                {ev.event_time && <span className="flex items-center gap-0.5"><Clock size={9} /> {ev.event_time}</span>}
+                              </p>
+                            </div>
                           </div>
-                        )
-                      })
-                    )}
+                          <button onClick={() => handleDeleteEvent(ev.id)} className="text-gray-300 hover:text-red-500 p-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                      )
+                    })}
                   </div>
                 </div>
 
-                {/* Bloco Lateral: Filtros de Calendário Interativos */}
                 <div className="bg-white rounded-2xl border border-[#e4e9e6] p-5 shadow-sm">
                   <div className="flex justify-between items-center mb-4">
                     <span className="text-xs font-bold text-[#1a2e26]">Calendários</span>
-                    <span className="text-[11px] font-bold text-[#00674F] cursor-pointer">Gerenciar</span>
                   </div>
                   <div className="space-y-3">
                     {Object.keys(visibleCategories).map(cat => {
@@ -491,7 +507,6 @@ export default function Dashboard({ session }) {
                 </div>
               </>
             ) : (
-              /* FEED CENTRAL DA UFA COMPLETO */
               <div className="bg-white rounded-2xl border border-[#e4e9e6] p-6 flex flex-col h-full min-h-[480px] shadow-sm relative overflow-hidden">
                 <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-[#00674F] to-[#D3AF37]" />
                 <div className="flex items-center gap-2.5 mb-3.5">
@@ -518,7 +533,7 @@ export default function Dashboard({ session }) {
         </main>
       </div>
 
-      {/* MODAL DE COMPROMISSO RESTAURADO */}
+      {/* MODAL DE COMPROMISSO */}
       {showEventModal && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl space-y-4 border border-gray-100">
