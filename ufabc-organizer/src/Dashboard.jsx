@@ -4,7 +4,8 @@ import {
   Plus, CheckCircle, Circle, Trash2, LogOut, Calendar,
   ListTodo, Home, Megaphone, LayoutGrid, BarChart, Settings,
   ChevronLeft, ChevronDown, Check, Bell, Award, Flame, MapPin,
-  Clock, Camera, ToggleRight, Search, Send, SlidersHorizontal
+  Clock, Camera, ToggleRight, Search, Send, SlidersHorizontal,
+  X, ArrowDown, Minus, ArrowUp, BookOpen, User, Briefcase
 } from 'lucide-react'
 
 export default function Dashboard({ session }) {
@@ -13,8 +14,17 @@ export default function Dashboard({ session }) {
 
   // Estados das Tarefas
   const [tasks, setTasks] = useState([])
+  const [showTaskModal, setShowTaskModal] = useState(false)
   const [newTaskTitle, setNewTaskTitle] = useState('')
   const [newTaskDate, setNewTaskDate] = useState('')
+
+  // Estados Visuais do Modal de Tarefas (Para manter o design rico)
+  const [newTaskDescription, setNewTaskDescription] = useState('')
+  const [newTaskTime, setNewTaskTime] = useState('')
+  const [newTaskDifficulty, setNewTaskDifficulty] = useState('Média')
+  const [newTaskLabel, setNewTaskLabel] = useState('Acadêmico')
+  const [newTaskReminder, setNewTaskReminder] = useState('Sem lembrete')
+  const [newTaskRecurring, setNewTaskRecurring] = useState(false)
 
   // Estados do Feed Coletivo
   const [posts, setPosts] = useState([])
@@ -154,7 +164,15 @@ export default function Dashboard({ session }) {
       .insert([{ user_id: session.user.id, title: newTaskTitle, due_date: newTaskDate || null, is_completed: false }])
 
     if (error) alert('Erro ao criar tarefa: ' + error.message)
-    else { setNewTaskTitle(''); setNewTaskDate(''); fetchTasks() }
+    else {
+      // Resetar os campos e fechar o modal
+      setNewTaskTitle('')
+      setNewTaskDate('')
+      setNewTaskDescription('')
+      setNewTaskTime('')
+      setShowTaskModal(false)
+      fetchTasks()
+    }
     setLoading(false)
   }
 
@@ -292,7 +310,6 @@ export default function Dashboard({ session }) {
         <main className="flex-1 p-[22px] grid grid-cols-1 lg:grid-cols-3 gap-[18px] overflow-auto">
           <div className="lg:col-span-2 flex flex-col gap-4">
 
-            {/* ABA INÍCIO */}
             {/* ==================== ABA INÍCIO (DESIGN PREMIUM + DADOS AO VIVO) ==================== */}
             {activeTab === 'inicio' && (
               <div className="space-y-5 animate-fade-in">
@@ -518,7 +535,7 @@ export default function Dashboard({ session }) {
                   </div>
                 </div>
 
-                {/* Barra de Filtros e Ações */}
+                {/* Barra de Filtros e Ações (COM O BOTÃO "+ Adicionar tarefa") */}
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mb-6">
                   <div className="flex items-center gap-2 overflow-x-auto scrollbar-none pb-1 lg:pb-0">
                     <button className="px-3.5 py-1.5 bg-[#00674F] text-white rounded-lg text-xs font-semibold flex items-center gap-2 whitespace-nowrap shadow-sm">
@@ -535,18 +552,12 @@ export default function Dashboard({ session }) {
                     <button className="px-3.5 py-1.5 bg-white border border-[#dde5e0] text-gray-600 hover:bg-gray-50 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors">
                       <SlidersHorizontal size={14} /> Filtros
                     </button>
+                    {/* NOVO BOTÃO QUE ABRE O MODAL */}
+                    <button onClick={() => setShowTaskModal(true)} className="px-4 py-1.5 bg-[#00674F] text-white rounded-lg text-xs font-bold hover:bg-[#005040] transition-colors shadow-sm flex items-center gap-1.5">
+                      <Plus size={14} /> Adicionar tarefa
+                    </button>
                   </div>
                 </div>
-
-                {/* Formulário Inline de Nova Tarefa (Integrado ao Design Premium) */}
-                <form onSubmit={handleAddTask} className="flex flex-col sm:flex-row gap-2.5 mb-6 p-1.5 bg-[#fafcfb] border border-[#e8ede9] rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.02)]">
-                  <input type="text" placeholder="Título da nova tarefa (Ex: Estudar para P1)" value={newTaskTitle} onChange={(e) => setNewTaskTitle(e.target.value)} className="flex-1 px-3.5 py-2 border-none bg-transparent text-xs outline-none text-[#1a2e26] font-medium placeholder:font-normal" required />
-                  <div className="w-px h-6 bg-gray-200 hidden sm:block self-center"></div>
-                  <input type="date" value={newTaskDate} onChange={(e) => setNewTaskDate(e.target.value)} className="px-3 py-2 border-none bg-transparent text-xs outline-none text-gray-500 sm:w-[130px] font-medium" />
-                  <button type="submit" disabled={loading} className="bg-[#00674F] text-white rounded-lg px-5 py-2 text-xs font-bold hover:bg-[#005040] disabled:opacity-50 transition-colors shadow-sm flex items-center gap-1.5 shrink-0">
-                    <Plus size={14} /> Adicionar
-                  </button>
-                </form>
 
                 {/* Lista de Tarefas (Estilo Tabela Rica) */}
                 <div className="flex-1 overflow-y-auto pr-1 space-y-4 scrollbar-thin">
@@ -768,7 +779,7 @@ export default function Dashboard({ session }) {
             )}
           </div>
 
-          {/* ==================== COLUNA DA DIREITA (DESIGN PREMIUM FIEL AO ANEXO 2) ==================== */}
+          {/* ==================== COLUNA DA DIREITA ==================== */}
           <div className="space-y-6">
             {activeTab === 'agenda' ? (
               <>
@@ -856,7 +867,7 @@ export default function Dashboard({ session }) {
               </>
             ) : activeTab === 'tarefas' ? (
 
-              /* ==================== VISÃO GERAL DE TAREFAS (DESIGN PREMIUM) ==================== */
+              /* ==================== VISÃO GERAL DE TAREFAS ==================== */
               <div className="space-y-6 animate-fade-in">
                 {/* Card Visão Geral */}
                 <div className="bg-white rounded-2xl border border-[#e4e9e6] p-5 shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
@@ -925,7 +936,7 @@ export default function Dashboard({ session }) {
                 </div>
               </div>
             ) : (
-              /* AQUI FICA O CÓDIGO DO FEED CENTRAL (MANTENHA COMO ESTÁ NO SEU ARQUIVO) */
+              /* FEED CENTRAL (OUTRAS ABAS) */
               <div className="bg-white rounded-2xl border border-[#e4e9e6] p-6 flex flex-col h-full min-h-[480px] shadow-sm relative overflow-hidden">
                 <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-[#00674F] to-[#D3AF37]" />
                 <div className="flex items-center gap-2.5 mb-3.5">
@@ -952,7 +963,132 @@ export default function Dashboard({ session }) {
         </main>
       </div>
 
-      {/* MODAL DE COMPROMISSO */}
+      {/* ==================== MODAL DE CRIAR NOVA TAREFA (NOVO PREMIUM) ==================== */}
+      {showTaskModal && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div className="bg-white rounded-2xl max-w-[600px] w-full p-6 shadow-xl flex flex-col max-h-[90vh] overflow-y-auto scrollbar-thin border border-gray-100">
+
+            {/* Header Modal */}
+            <div className="flex justify-between items-start mb-6">
+              <div>
+                <h3 className="text-lg font-bold text-[#1a2e26]">Adicionar tarefa</h3>
+                <p className="text-xs text-gray-500 mt-1">Preencha os dados para criar uma nova tarefa.</p>
+              </div>
+              <button onClick={() => setShowTaskModal(false)} className="text-gray-400 hover:text-gray-600 bg-gray-50 p-1.5 rounded-lg transition-colors">
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Form */}
+            <form onSubmit={handleAddTask} className="space-y-5">
+
+              {/* Título */}
+              <div>
+                <label className="text-[11px] font-bold text-[#1a2e26] block mb-1.5">Nome da tarefa <span className="text-red-500">*</span></label>
+                <div className="relative">
+                  <input type="text" value={newTaskTitle} onChange={(e) => setNewTaskTitle(e.target.value)} placeholder="Ex: Estudar para Prova de Cálculo I" className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-[13px] bg-[#fafcfb] outline-none focus:border-[#00674F] focus:bg-white transition-colors" required />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">{newTaskTitle.length}/100</span>
+                </div>
+              </div>
+
+              {/* Descrição */}
+              <div>
+                <label className="text-[11px] font-bold text-[#1a2e26] block mb-1.5">Descrição <span className="text-gray-400 font-medium">(opcional)</span></label>
+                <div className="relative">
+                  <textarea value={newTaskDescription} onChange={(e) => setNewTaskDescription(e.target.value)} placeholder="Adicione mais detalhes sobre esta tarefa..." className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-[13px] bg-[#fafcfb] outline-none focus:border-[#00674F] focus:bg-white transition-colors min-h-[80px] resize-none"></textarea>
+                  <span className="absolute right-3 bottom-3 text-[10px] text-gray-400">{newTaskDescription.length}/500</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                {/* Data e Horário */}
+                <div>
+                  <label className="text-[11px] font-bold text-[#1a2e26] block mb-1.5">Data e horário</label>
+                  <div className="space-y-2">
+                    <div className="relative">
+                      <Calendar size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                      <input type="date" value={newTaskDate} onChange={(e) => setNewTaskDate(e.target.value)} className="w-full pl-9 pr-3 py-2.5 border border-gray-200 rounded-xl text-[13px] bg-[#fafcfb] outline-none text-gray-600 focus:border-[#00674F]" />
+                    </div>
+                    <div className="relative">
+                      <Clock size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                      <input type="time" value={newTaskTime} onChange={(e) => setNewTaskTime(e.target.value)} className="w-full pl-9 pr-3 py-2.5 border border-gray-200 rounded-xl text-[13px] bg-[#fafcfb] outline-none text-gray-600 focus:border-[#00674F]" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Dificuldade */}
+                <div>
+                  <label className="text-[11px] font-bold text-[#1a2e26] flex items-center gap-1 mb-1.5">Dificuldade <span className="w-3 h-3 rounded-full border border-gray-300 flex items-center justify-center text-[8px] text-gray-400">i</span></label>
+                  <div className="grid grid-cols-3 gap-2 h-[88px]">
+                    <button type="button" onClick={() => setNewTaskDifficulty('Baixa')} className={`flex flex-col items-center justify-center gap-1.5 rounded-xl border transition-colors ${newTaskDifficulty === 'Baixa' ? 'bg-emerald-50 border-emerald-200' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>
+                      <ArrowDown size={16} className={newTaskDifficulty === 'Baixa' ? 'text-emerald-600' : 'text-emerald-500'} />
+                      <span className={`text-[11px] font-bold ${newTaskDifficulty === 'Baixa' ? 'text-emerald-700' : 'text-gray-500'}`}>Baixa</span>
+                    </button>
+                    <button type="button" onClick={() => setNewTaskDifficulty('Média')} className={`flex flex-col items-center justify-center gap-1.5 rounded-xl border transition-colors ${newTaskDifficulty === 'Média' ? 'bg-amber-50 border-amber-200' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>
+                      <Minus size={16} className={newTaskDifficulty === 'Média' ? 'text-amber-600' : 'text-amber-500'} />
+                      <span className={`text-[11px] font-bold ${newTaskDifficulty === 'Média' ? 'text-amber-700' : 'text-gray-500'}`}>Média</span>
+                    </button>
+                    <button type="button" onClick={() => setNewTaskDifficulty('Alta')} className={`flex flex-col items-center justify-center gap-1.5 rounded-xl border transition-colors ${newTaskDifficulty === 'Alta' ? 'bg-red-50 border-red-200' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>
+                      <ArrowUp size={16} className={newTaskDifficulty === 'Alta' ? 'text-red-600' : 'text-red-500'} />
+                      <span className={`text-[11px] font-bold ${newTaskDifficulty === 'Alta' ? 'text-red-700' : 'text-gray-500'}`}>Alta</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Etiqueta */}
+              <div>
+                <label className="text-[11px] font-bold text-[#1a2e26] block mb-1.5">Etiqueta</label>
+                <p className="text-[10px] text-gray-500 mb-2.5">Selecione uma ou mais etiquetas para categorizar sua tarefa.</p>
+                <div className="grid grid-cols-3 gap-2.5">
+                  <button type="button" onClick={() => setNewTaskLabel('Acadêmico')} className={`flex items-center justify-center gap-2 py-2.5 rounded-xl border transition-colors ${newTaskLabel === 'Acadêmico' ? 'bg-[#e8f5ef] border-[#00674F] text-[#00674F]' : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'}`}>
+                    <BookOpen size={14} /> <span className="text-xs font-bold">Acadêmico</span>
+                  </button>
+                  <button type="button" onClick={() => setNewTaskLabel('Pessoal')} className={`flex items-center justify-center gap-2 py-2.5 rounded-xl border transition-colors ${newTaskLabel === 'Pessoal' ? 'bg-amber-50 border-amber-400 text-amber-700' : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'}`}>
+                    <User size={14} /> <span className="text-xs font-bold">Pessoal</span>
+                  </button>
+                  <button type="button" onClick={() => setNewTaskLabel('Projeto')} className={`flex items-center justify-center gap-2 py-2.5 rounded-xl border transition-colors ${newTaskLabel === 'Projeto' ? 'bg-blue-50 border-blue-400 text-blue-700' : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'}`}>
+                    <Briefcase size={14} /> <span className="text-xs font-bold">Projeto</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Lembrete */}
+              <div>
+                <label className="text-[11px] font-bold text-[#1a2e26] block mb-1.5">Lembrete <span className="text-gray-400 font-medium">(opcional)</span></label>
+                <div className="relative">
+                  <Bell size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <select value={newTaskReminder} onChange={(e) => setNewTaskReminder(e.target.value)} className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl text-xs bg-white outline-none focus:border-[#00674F] appearance-none text-gray-600 font-medium cursor-pointer">
+                    <option value="Sem lembrete">Sem lembrete</option>
+                    <option value="10 minutos antes">10 minutos antes</option>
+                    <option value="30 minutos antes">30 minutos antes</option>
+                    <option value="1 hora antes">1 hora antes</option>
+                  </select>
+                  <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                </div>
+              </div>
+
+              {/* Footer Modal: Recorrente e Botões */}
+              <div className="flex flex-col sm:flex-row items-center justify-between pt-5 border-t border-gray-100 gap-4">
+                <label className="flex items-center gap-2 text-xs font-bold text-gray-600 cursor-pointer w-full sm:w-auto justify-center sm:justify-start">
+                  <input type="checkbox" checked={newTaskRecurring} onChange={(e) => setNewTaskRecurring(e.target.checked)} className="rounded border-gray-300 text-[#00674F] focus:ring-[#00674F] w-4 h-4 cursor-pointer" />
+                  Tarefa recorrente
+                </label>
+                <div className="flex gap-2 w-full sm:w-auto">
+                  <button type="button" onClick={() => setShowTaskModal(false)} className="flex-1 sm:flex-none px-5 py-2.5 border border-gray-200 text-gray-600 rounded-xl text-xs font-bold hover:bg-gray-50 transition-colors">
+                    Cancelar
+                  </button>
+                  <button type="submit" disabled={loading} className="flex-1 sm:flex-none px-6 py-2.5 bg-[#00674F] text-white rounded-xl text-xs font-bold hover:bg-[#005040] transition-colors shadow-sm disabled:opacity-50">
+                    Adicionar tarefa
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE COMPROMISSO AGENDA (MANTIDO) */}
       {showEventModal && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl space-y-4 border border-gray-100">
