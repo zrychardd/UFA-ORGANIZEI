@@ -293,21 +293,207 @@ export default function Dashboard({ session }) {
           <div className="lg:col-span-2 flex flex-col gap-4">
 
             {/* ABA INÍCIO */}
+            {/* ==================== ABA INÍCIO (DESIGN PREMIUM + DADOS AO VIVO) ==================== */}
             {activeTab === 'inicio' && (
-              <div className="space-y-5">
-                <div className="bg-white rounded-2xl border border-[#e4e9e6] p-5 flex justify-between items-center shadow-sm">
+              <div className="space-y-5 animate-fade-in">
+
+                {/* Header Solto */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-2">
                   <div>
-                    <h2 className="text-[17px] font-bold text-[#1a2e26]">Olá, {headerDisplayName}! 👋</h2>
-                    <p className="text-xs text-[#8a9e94] mt-0.5">Aqui está um resumo do seu dia na UFA.</p>
+                    <h2 className="text-2xl font-bold text-[#1a2e26]">Olá, {headerDisplayName}! 👋</h2>
+                    <p className="text-sm text-[#8a9e94] mt-1">Aqui está um resumo do seu dia na UFA.</p>
                   </div>
-                  <button onClick={() => setActiveTab('tarefas')} className="text-xs font-semibold text-[#00674F] border border-[#00674F] rounded-xl px-3 py-1.5 hover:bg-[#f0f5f2]">Ver todas as tarefas</button>
+                  <button onClick={() => setActiveTab('tarefas')} className="text-sm font-semibold text-[#00674F] border-2 border-[#e8f5ef] rounded-xl px-5 py-2.5 hover:bg-[#f0f5f2] transition-colors shadow-sm">
+                    Ver todas as tarefas
+                  </button>
                 </div>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
-                  <div className="bg-white border border-[#e4e9e6] p-4 rounded-2xl flex items-center gap-3.5 shadow-sm"><div className="w-10 h-10 rounded-xl bg-[#e8f5ef] flex items-center justify-center"><ListTodo size={18} className="text-[#00674F]" /></div><div><div className="text-lg font-bold text-gray-800 leading-none">{pendingTasksCount}</div><div className="text-[11px] font-medium text-[#1a2e26] mt-0.5">Tarefas pendentes</div></div></div>
-                  <div className="bg-white border border-[#e4e9e6] p-4 rounded-2xl flex items-center gap-3.5 shadow-sm cursor-pointer" onClick={() => setActiveTab('agenda')}><div className="w-10 h-10 rounded-xl bg-[#fdf5e0] flex items-center justify-center"><Calendar size={18} className="text-[#D3AF37]" /></div><div><div className="text-lg font-bold text-gray-800 leading-none">{events.length}</div><div className="text-[11px] font-medium text-[#1a2e26] mt-0.5">Eventos agendados</div></div></div>
-                  <div className="bg-white border border-[#e4e9e6] p-4 rounded-2xl flex items-center gap-3.5 shadow-sm"><div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center"><Bell size={18} className="text-blue-600" /></div><div><div className="text-lg font-bold text-gray-800 leading-none">2</div><div className="text-[11px] font-medium text-[#1a2e26] mt-0.5">Avisos não lidos</div></div></div>
-                  <div className="bg-white border border-[#e4e9e6] p-4 rounded-2xl flex items-center gap-3.5 shadow-sm"><div className="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center"><Award size={18} className="text-purple-600" /></div><div><div className="text-lg font-bold text-gray-800 leading-none">85%</div><div className="text-[11px] font-medium text-[#1a2e26] mt-0.5">Produtividade</div></div></div>
+
+                {/* Grid 4 Cards Superiores (Com Contadores Reais) */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="bg-white border border-[#e4e9e6] p-5 rounded-2xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-2xl bg-[#e8f5ef] flex items-center justify-center shrink-0">
+                      <ListTodo size={22} className="text-[#00674F]" />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-2xl font-bold text-[#1a2e26] leading-none mb-1">{pendingTasksCount}</span>
+                      <span className="text-[13px] font-bold text-[#1a2e26]">Tarefas pendentes</span>
+                      <span className="text-[11px] text-[#8a9e94] mt-0.5">{pendingTasksCount === 0 ? 'Nada para fazer! 🎉' : 'Foque e termine!'}</span>
+                    </div>
+                  </div>
+
+                  <div className="bg-white border border-[#e4e9e6] p-5 rounded-2xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] flex items-center gap-4 cursor-pointer hover:shadow-md transition-shadow" onClick={() => setActiveTab('agenda')}>
+                    <div className="w-12 h-12 rounded-2xl bg-[#fdf5e0] flex items-center justify-center shrink-0">
+                      <Calendar size={22} className="text-[#D3AF37]" />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-2xl font-bold text-[#1a2e26] leading-none mb-1">{events.length}</span>
+                      <span className="text-[13px] font-bold text-[#1a2e26]">Eventos agendados</span>
+                      <span className="text-[11px] text-[#8a9e94] mt-0.5">{events.length === 0 ? 'Agenda livre' : 'Fique de olho!'}</span>
+                    </div>
+                  </div>
+
+                  <div className="bg-white border border-[#e4e9e6] p-5 rounded-2xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-2xl bg-[#e8f5ef] flex items-center justify-center shrink-0">
+                      <Bell size={22} className="text-[#00674F]" />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-2xl font-bold text-[#1a2e26] leading-none mb-1">2</span>
+                      <span className="text-[13px] font-bold text-[#1a2e26]">Avisos não lidos</span>
+                      <span className="text-[11px] text-[#8a9e94] mt-0.5">Fique por dentro</span>
+                    </div>
+                  </div>
+
+                  <div className="bg-white border border-[#e4e9e6] p-5 rounded-2xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-2xl bg-[#fdf5e0] flex items-center justify-center shrink-0">
+                      <BarChart size={22} className="text-[#D3AF37]" />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-2xl font-bold text-[#1a2e26] leading-none mb-1">85%</span>
+                      <span className="text-[13px] font-bold text-[#1a2e26]">Produtividade</span>
+                      <span className="text-[11px] text-[#8a9e94] mt-0.5">Continue assim!</span>
+                    </div>
+                  </div>
                 </div>
+
+                {/* Sessão do Meio (Próximos Eventos & Tarefas em Destaque Dinâmicos) */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+                  {/* Próximos Eventos Ao Vivo */}
+                  <div className="bg-white border border-[#e4e9e6] p-6 rounded-2xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] flex flex-col h-[280px]">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-[15px] font-bold text-[#1a2e26] flex items-center gap-2.5">
+                        <Calendar size={18} className="text-[#00674F]" /> Próximos eventos
+                      </span>
+                      <span onClick={() => setActiveTab('agenda')} className="text-xs font-bold text-[#00674F] cursor-pointer hover:underline">Ver agenda</span>
+                    </div>
+
+                    {events.length === 0 ? (
+                      <div className="flex-1 flex flex-col items-center justify-center text-center mt-2">
+                        <div className="relative mb-4">
+                          <div className="w-[72px] h-[72px] rounded-full bg-[#e8f5ef] flex items-center justify-center text-[#00674F] opacity-70">
+                            <Calendar size={32} strokeWidth={1.5} />
+                          </div>
+                          <div className="absolute right-0 bottom-0 w-7 h-7 bg-[#D3AF37] text-white rounded-full flex items-center justify-center border-[3px] border-white shadow-sm">
+                            <Check size={14} strokeWidth={4} />
+                          </div>
+                        </div>
+                        <h4 className="text-[14px] font-bold text-[#1a2e26]">Nenhum evento próximo</h4>
+                        <p className="text-[12px] text-[#8a9e94] mt-1 max-w-[240px]">Você não tem eventos agendados para os próximos dias.</p>
+                      </div>
+                    ) : (
+                      <div className="flex-1 overflow-y-auto mt-2 space-y-2.5 pr-1 scrollbar-none">
+                        {events.slice(0, 3).map(ev => {
+                          const style = getCategoryStyle(ev.category);
+                          return (
+                            <div key={ev.id} className="p-3 bg-[#fafcfb] border border-[#e8ede9] rounded-xl flex items-center justify-between">
+                              <div className="flex items-center gap-3.5 min-w-0">
+                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${style.bg} ${style.text}`}>
+                                  <Calendar size={16} />
+                                </div>
+                                <div className="min-w-0">
+                                  <h4 className="text-[13px] font-bold text-[#1a2e26] truncate">{ev.title}</h4>
+                                  <p className="text-[11px] text-gray-500 mt-0.5 truncate">{ev.event_date} {ev.event_time ? `- ${ev.event_time}` : ''}</p>
+                                </div>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Tarefas em destaque Ao Vivo */}
+                  <div className="bg-white border border-[#e4e9e6] p-6 rounded-2xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] flex flex-col h-[280px]">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-[15px] font-bold text-[#1a2e26] flex items-center gap-2.5">
+                        <ListTodo size={18} className="text-[#00674F]" /> Tarefas em destaque
+                      </span>
+                      <span onClick={() => setActiveTab('tarefas')} className="text-xs font-bold text-[#00674F] cursor-pointer hover:underline">Ver todas</span>
+                    </div>
+
+                    {pendingTasksCount === 0 ? (
+                      <div className="flex-1 flex flex-col items-center justify-center text-center mt-2">
+                        <div className="relative mb-4">
+                          <div className="w-[72px] h-[72px] rounded-full bg-[#e8f5ef] flex items-center justify-center text-[#00674F] opacity-70">
+                            <ListTodo size={32} strokeWidth={1.5} />
+                          </div>
+                          <div className="absolute right-0 bottom-0 w-7 h-7 bg-[#D3AF37] text-white rounded-full flex items-center justify-center border-[3px] border-white shadow-sm">
+                            <Check size={14} strokeWidth={4} />
+                          </div>
+                        </div>
+                        <h4 className="text-[14px] font-bold text-[#1a2e26]">Nenhuma tarefa em destaque</h4>
+                        <p className="text-[12px] text-[#8a9e94] mt-1 max-w-[240px]">Crie e destaque tarefas importantes para aparecerem aqui.</p>
+                      </div>
+                    ) : (
+                      <div className="flex-1 overflow-y-auto mt-2 space-y-2.5 pr-1 scrollbar-none">
+                        {tasks.filter(t => !t.is_completed).slice(0, 3).map(task => (
+                          <div key={task.id} className="p-3 bg-[#fafcfb] border border-[#e8ede9] rounded-xl flex items-center justify-between">
+                            <div className="flex items-center gap-3.5 min-w-0">
+                              <div className="w-10 h-10 rounded-xl bg-[#e8f5ef] text-[#00674F] flex items-center justify-center shrink-0">
+                                <ListTodo size={16} />
+                              </div>
+                              <div className="min-w-0">
+                                <h4 className="text-[13px] font-bold text-[#1a2e26] truncate">{task.title}</h4>
+                                <p className="text-[11px] text-gray-500 mt-0.5 truncate">{task.due_date ? `Prazo: ${task.due_date}` : 'Sem prazo definido'}</p>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Sessão Inferior (Hábitos - Mantida como o Design) */}
+                <div className="bg-white border border-[#e4e9e6] p-6 rounded-2xl shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
+                  <div className="flex justify-between items-start mb-6">
+                    <div>
+                      <span className="text-[15px] font-bold text-[#1a2e26] flex items-center gap-2.5">
+                        <BarChart size={18} className="text-[#00674F]" /> Seus hábitos
+                      </span>
+                      <p className="text-[12px] text-[#8a9e94] mt-1">Acompanhe seus hábitos diários</p>
+                    </div>
+                    <button className="text-xs font-semibold text-[#00674F] border border-[#e4e9e6] rounded-xl px-4 py-2 hover:bg-[#f0f5f2] transition-colors shadow-sm">
+                      Ver relatório
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="bg-[#fafcfb] border border-[#e8ede9] p-4 rounded-2xl flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-full border-4 border-[#e8f5ef] flex items-center justify-center text-[11px] font-bold text-gray-400 shrink-0">0%</div>
+                      <div className="flex flex-col">
+                        <span className="text-[13px] font-bold text-[#1a2e26]">Estudar</span>
+                        <span className="text-[10px] text-gray-400 font-medium">0%</span>
+                        <span className="text-[10px] text-gray-400">0/0 dias</span>
+                      </div>
+                    </div>
+                    <div className="bg-[#fafcfb] border border-[#e8ede9] p-4 rounded-2xl flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-full border-4 border-[#e8f5ef] flex items-center justify-center text-[11px] font-bold text-gray-400 shrink-0">0%</div>
+                      <div className="flex flex-col">
+                        <span className="text-[13px] font-bold text-[#1a2e26]">Exercícios</span>
+                        <span className="text-[10px] text-gray-400 font-medium">0%</span>
+                        <span className="text-[10px] text-gray-400">0/0 dias</span>
+                      </div>
+                    </div>
+                    <div className="bg-[#fafcfb] border border-[#e8ede9] p-4 rounded-2xl flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-full border-4 border-[#e8f5ef] flex items-center justify-center text-[11px] font-bold text-gray-400 shrink-0">0%</div>
+                      <div className="flex flex-col">
+                        <span className="text-[13px] font-bold text-[#1a2e26]">Leitura</span>
+                        <span className="text-[10px] text-gray-400 font-medium">0%</span>
+                        <span className="text-[10px] text-gray-400">0/0 dias</span>
+                      </div>
+                    </div>
+                    <div className="bg-[#fafcfb] border border-[#e8ede9] p-4 rounded-2xl flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-full border-4 border-[#e8f5ef] flex items-center justify-center text-[11px] font-bold text-gray-400 shrink-0">0%</div>
+                      <div className="flex flex-col">
+                        <span className="text-[13px] font-bold text-[#1a2e26]">Projetos</span>
+                        <span className="text-[10px] text-gray-400 font-medium">0%</span>
+                        <span className="text-[10px] text-gray-400">0/0 dias</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
               </div>
             )}
 
