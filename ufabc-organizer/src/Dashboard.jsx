@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { supabase } from './supabaseClient'
 import {
   Plus, CheckCircle, Circle, Trash2, LogOut, Calendar,
-  ListTodo, Share2, Send, Home, Speakerphone,
+  ListTodo, Share2, Send, Home, Megaphone,
   LayoutGrid, BarChart, Settings, ChevronLeft, ChevronDown, Check,
   Bell, Award, Flame
 } from 'lucide-react'
@@ -239,7 +239,7 @@ export default function Dashboard({ session }) {
             <span>Agenda</span>
           </div>
           <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-not-allowed text-xs font-normal text-gray-300">
-            <Speakerphone size={16} className="shrink-0" />
+            <Megaphone size={16} className="shrink-0" />
             <span>Avisos</span>
           </div>
           <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-not-allowed text-xs font-normal text-gray-300">
@@ -506,7 +506,7 @@ export default function Dashboard({ session }) {
 
             <div className="flex items-center gap-2.5 mb-3.5">
               <div className="w-9 h-9 rounded-xl bg-[#fdf5e0] flex items-center justify-center shrink-0">
-                <Speakerphone size={18} className="text-[#D3AF37]" />
+                <Megaphone size={18} className="text-[#D3AF37]" />
               </div>
               <div>
                 <div className="text-[15px] font-medium text-[#1a2e26]">Feed Central da UFA</div>
