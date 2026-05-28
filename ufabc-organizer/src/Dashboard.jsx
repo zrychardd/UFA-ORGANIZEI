@@ -30,7 +30,15 @@ export default function Dashboard({ session }) {
   const [newEventLocation, setNewEventLocation] = useState('')
   const [newEventCategory, setNewEventCategory] = useState('Acadêmico')
 
-  // Estados dos Avisos (Mural Dinâmico Integrado)
+  // Filtros de Categorias da Agenda (Restaurado com Sucesso)
+  const [visibleCategories, setVisibleCategories] = useState({
+    'Acadêmico': true,
+    'Pessoal': true,
+    'PET / Projetos': true,
+    'Esportivo': true
+  })
+
+  // Estados dos Avisos (Mural Dinâmico)
   const [announcements, setAnnouncements] = useState([])
   const [showNoticeModal, setShowNoticeModal] = useState(false)
   const [noticeTitle, setNoticeTitle] = useState('')
@@ -39,14 +47,6 @@ export default function Dashboard({ session }) {
   const [noticeFeatured, setNoticeFeatured] = useState(false)
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState('Todos')
   const [searchQuery, setSearchQuery] = useState('')
-
-  // Filtros de Categorias da Agenda
-  const [visibleCategories, setVisibleCategories] = useState({
-    'Acadêmico': true,
-    'Pessoal': true,
-    'PET / Projetos': true,
-    'Esportivo': true
-  })
 
   const [loading, setLoading] = useState(false)
 
@@ -62,7 +62,7 @@ export default function Dashboard({ session }) {
     fetchEvents()
     fetchAnnouncements()
 
-    // canais em tempo real integrados
+    // Sincronização em tempo real do banco de dados
     const channel = supabase
       .channel('schema-db-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'posts' }, () => { fetchPosts() })
@@ -307,16 +307,7 @@ export default function Dashboard({ session }) {
     }
   }
 
-  const filteredAnnouncements = announcements.filter(item => {
-    const matchCategory = selectedCategoryFilter === 'Todos' || item.category === selectedCategoryFilter;
-    const matchSearch = item.title.toLowerCase().includes(searchQuery.toLowerCase()) || item.content.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchCategory && matchSearch;
-  })
-
-  const featuredNotice = announcements.find(item => item.is_featured) || announcements[0];
-  const getCategoryCount = (cat) => announcements.filter(item => item.category === cat).length;
-
-  // Geração da grade de dias para o mês fixo de Maio de 2024 (conforme o print)
+  // Geração da grade de dias para a Agenda (Maio 2024)
   const daysInCalendar = []
   daysInCalendar.push({ dayNumber: 28, isCurrentMonth: false }, { dayNumber: 29, isCurrentMonth: false }, { dayNumber: 30, isCurrentMonth: false })
   for (let i = 1; i <= 31; i++) {
@@ -485,6 +476,79 @@ export default function Dashboard({ session }) {
                     </div>
                   </div>
                 </div>
+
+                {/* Próximos Eventos e Tarefas em Destaque */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="bg-white border border-[#e4e9e6] p-5 rounded-2xl shadow-sm flex flex-col h-48">
+                    <div className="flex justify-between items-center mb-4">
+                      <span className="text-xs font-bold text-[#1a2e26] flex items-center gap-2">
+                        <Calendar size={14} className="text-[#00674F]" /> Próximos eventos
+                      </span>
+                      <span onClick={() => setActiveTab('agenda')} className="text-[11px] font-semibold text-[#00674F] cursor-pointer">Ver agenda</span>
+                    </div>
+                    <div className="flex-1 flex flex-col items-center justify-center text-center">
+                      <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center mb-1.5 text-gray-400">✓</div>
+                      <div className="text-[11px] font-medium text-[#4a5e56]">Nenhum evento próximo</div>
+                      <div className="text-[10px] text-[#9aada5] mt-0.5">Você não tem eventos agendados.</div>
+                    </div>
+                  </div>
+
+                  <div className="bg-white border border-[#e4e9e6] p-5 rounded-2xl shadow-sm flex flex-col h-48">
+                    <div className="flex justify-between items-center mb-4">
+                      <span className="text-xs font-bold text-[#1a2e26] flex items-center gap-2">
+                        <ListTodo size={14} className="text-[#00674F]" /> Tarefas em destaque
+                      </span>
+                      <span onClick={() => setActiveTab('tarefas')} className="text-[11px] font-semibold text-[#00674F] cursor-pointer">Ver todas</span>
+                    </div>
+                    <div className="flex-1 flex flex-col items-center justify-center text-center">
+                      <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center mb-1.5 text-gray-400">★</div>
+                      <div className="text-[11px] font-medium text-[#4a5e56]">Nenhuma tarefa em destaque</div>
+                      <div className="text-[10px] text-[#9aada5] mt-0.5">Crie e marque tarefas importantes.</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Seus Hábitos */}
+                <div className="bg-white border border-[#e4e9e6] p-5 rounded-2xl shadow-sm">
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="text-xs font-bold text-[#1a2e26] flex items-center gap-2">
+                      <Flame size={14} className="text-[#00674F]" /> Seus hábitos
+                    </span>
+                    <span className="text-[11px] font-semibold text-[#00674F] cursor-not-allowed opacity-50">Ver relatório</span>
+                  </div>
+                  <p className="text-[11px] text-[#9aada5] mb-4">Acompanhe seus hábitos diários</p>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="bg-[#fafcfb] border border-[#e8ede9] p-3 rounded-xl flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-green-50 flex items-center justify-center text-xs font-bold text-[#00674F]">0%</div>
+                      <div>
+                        <div className="text-[11px] font-bold text-gray-700">Estudar</div>
+                        <div className="text-[10px] text-gray-400">0/0 dias</div>
+                      </div>
+                    </div>
+                    <div className="bg-[#fafcfb] border border-[#e8ede9] p-3 rounded-xl flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-amber-50 flex items-center justify-center text-xs font-bold text-[#D3AF37]">0%</div>
+                      <div>
+                        <div className="text-[11px] font-bold text-gray-700">Exercícios</div>
+                        <div className="text-[10px] text-gray-400">0/0 dias</div>
+                      </div>
+                    </div>
+                    <div className="bg-[#fafcfb] border border-[#e8ede9] p-3 rounded-xl flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center text-xs font-bold text-blue-600">0%</div>
+                      <div>
+                        <div className="text-[11px] font-bold text-gray-700">Leitura</div>
+                        <div className="text-[10px] text-gray-400">0/0 dias</div>
+                      </div>
+                    </div>
+                    <div className="bg-[#fafcfb] border border-[#e8ede9] p-3 rounded-xl flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-purple-50 flex items-center justify-center text-xs font-bold text-purple-600">0%</div>
+                      <div>
+                        <div className="text-[11px] font-bold text-gray-700">Projetos</div>
+                        <div className="text-[10px] text-gray-400">0/0 dias</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
 
@@ -536,7 +600,7 @@ export default function Dashboard({ session }) {
               </div>
             )}
 
-            {/* ==================== RENDER: ABA AGENDA (FIEL AO BACKUP ORIGINAL) ==================== */}
+            {/* ==================== RENDER: ABA AGENDA ==================== */}
             {activeTab === 'agenda' && (
               <div className="bg-white rounded-2xl border border-[#e4e9e6] p-6 flex flex-col shadow-sm">
 
@@ -625,7 +689,7 @@ export default function Dashboard({ session }) {
               </div>
             )}
 
-            {/* ==================== RENDER: ABA AVISOS (INJETADA COM SUCESSO) ==================== */}
+            {/* ==================== RENDER: ABA AVISOS ==================== */}
             {activeTab === 'avisos' && (
               <div className="bg-white rounded-2xl border border-[#e4e9e6] p-6 flex flex-col shadow-sm space-y-5">
 
@@ -671,8 +735,8 @@ export default function Dashboard({ session }) {
                         key={cat}
                         onClick={() => setSelectedCategoryFilter(cat)}
                         className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${selectedCategoryFilter === cat
-                            ? 'bg-[#00674F] text-white border-[#00674F] font-bold shadow-sm'
-                            : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
+                          ? 'bg-[#00674F] text-white border-[#00674F] font-bold shadow-sm'
+                          : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
                           }`}
                       >
                         {cat}
@@ -685,7 +749,7 @@ export default function Dashboard({ session }) {
                   </button>
                 </div>
 
-                {/* Mural Totalmente Limpo sem avisos estáticos mockados */}
+                {/* Mural de Avisos Dinâmico */}
                 <div className="space-y-3 max-h-[460px] overflow-y-auto pr-1">
                   {filteredAnnouncements.length === 0 ? (
                     <div className="py-20 flex flex-col items-center justify-center text-center gap-3">
@@ -753,11 +817,10 @@ export default function Dashboard({ session }) {
 
             {activeTab === 'agenda' ? (
               <>
-                {/* Widgets Originais da sua Agenda */}
                 <div className="bg-white rounded-2xl border border-[#e4e9e6] p-5 shadow-sm flex flex-col">
                   <div className="flex justify-between items-center mb-4">
-                    <span className="text-xs font-bold text-[#1a2e26]">Próximos events</span>
-                    <span className="text-[11px] font-bold text-[#00674F]">Ver todos</span>
+                    <span className="text-xs font-bold text-[#1a2e26]">Próximos eventos</span>
+                    <span onClick={() => setActiveTab('agenda')} className="text-[11px] font-bold text-[#00674F] cursor-pointer">Ver todos</span>
                   </div>
                   <div className="space-y-2.5 max-h-[380px] overflow-y-auto pr-1">
                     {events.length === 0 ? (
@@ -790,7 +853,7 @@ export default function Dashboard({ session }) {
                 <div className="bg-white rounded-2xl border border-[#e4e9e6] p-5 shadow-sm">
                   <div className="flex justify-between items-center mb-4">
                     <span className="text-xs font-bold text-[#1a2e26]">Calendários</span>
-                    <span className="text-[11px] font-bold text-[#00674F]">Gerenciar</span>
+                    <span className="text-[11px] font-bold text-[#00674F] cursor-not-allowed opacity-50">Gerenciar</span>
                   </div>
                   <div className="space-y-3">
                     {Object.keys(visibleCategories).map(cat => {
@@ -810,7 +873,6 @@ export default function Dashboard({ session }) {
               </>
             ) : activeTab === 'avisos' ? (
               <>
-                {/* Widgets Dinâmicos Injetados para a Aba Avisos */}
                 <div className="bg-white rounded-2xl border border-[#e4e9e6] p-5 shadow-sm flex flex-col">
                   <div className="flex items-center gap-2 text-xs font-bold text-gray-800 mb-3">
                     <span className="text-amber-500">★</span> <span>Avisos em destaque</span>
@@ -842,7 +904,7 @@ export default function Dashboard({ session }) {
                 </div>
               </>
             ) : (
-              /* ==================== CASO BASE: FEED DO SEU BACKUP ORIGINAL ==================== */
+              /* FEED CENTRAL DA UFA */
               <div className="bg-white rounded-2xl border border-[#e4e9e6] p-6 flex flex-col h-full min-h-[480px] shadow-sm relative overflow-hidden">
                 <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-[#00674F] to-[#D3AF37]" />
 
@@ -895,7 +957,7 @@ export default function Dashboard({ session }) {
         </main>
       </div>
 
-      {/* ==================== MODAL DE ADICIONAR NOVO EVENTO (BACKUP) ==================== */}
+      {/* ==================== MODAL DE ADICIONAR NOVO EVENTO ==================== */}
       {showEventModal && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
           <div className="bg-white rounded-2xl border border-gray-100 max-w-md w-full p-6 shadow-xl space-y-4">
@@ -976,7 +1038,7 @@ export default function Dashboard({ session }) {
         </div>
       )}
 
-      {/* ==================== MODAL DE CRIAR NOVO AVISO (INJETADO) ==================== */}
+      {/* ==================== MODAL DE CRIAR NOVO AVISO ==================== */}
       {showNoticeModal && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl space-y-4 border border-gray-100">
