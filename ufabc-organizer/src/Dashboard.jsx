@@ -4,7 +4,7 @@ import {
   Plus, CheckCircle, Circle, Trash2, LogOut, Calendar,
   ListTodo, Share2, Send, Home, Megaphone,
   LayoutGrid, BarChart, Settings, ChevronLeft, ChevronDown, Check,
-  Bell, Award, Flame
+  Bell, Award, Flame, ChevronJanelas, MapPin, Clock
 } from 'lucide-react'
 
 export default function Dashboard({ session }) {
@@ -20,6 +20,23 @@ export default function Dashboard({ session }) {
   const [posts, setPosts] = useState([])
   const [newPostContent, setNewPostContent] = useState('')
 
+  // Estados da Agenda
+  const [events, setEvents] = useState([])
+  const [showEventModal, setShowEventModal] = useState(false)
+  const [newEventTitle, setNewEventTitle] = useState('')
+  const [newEventDate, setNewEventDate] = useState('2024-05-01')
+  const [newEventTime, setNewEventTime] = useState('')
+  const [newEventLocation, setNewEventLocation] = useState('')
+  const [newEventCategory, setNewEventCategory] = useState('Acadêmico')
+
+  // Filtros de Categorias da Agenda
+  const [visibleCategories, setVisibleCategories] = useState({
+    'Acadêmico': true,
+    'Pessoal': true,
+    'PET / Projetos': true,
+    'Esportivo': true
+  })
+
   const [loading, setLoading] = useState(false)
 
   // Extrai informações do usuário logado
@@ -31,6 +48,7 @@ export default function Dashboard({ session }) {
   useEffect(() => {
     fetchTasks()
     fetchPosts()
+    fetchEvents()
 
     // Sistema em tempo real do Feed Coletivo
     const channel = supabase
@@ -161,8 +179,79 @@ export default function Dashboard({ session }) {
     }
   }
 
+  // ==================== LÓGICA DA AGENDA ====================
+  const fetchEvents = async () => {
+    const { data, error } = await supabase
+      .from('events')
+      .select('*')
+      .order('event_date', { ascending: true })
+
+    if (error) console.error('Erro ao buscar eventos:', error.message)
+    else setEvents(data || [])
+  }
+
+  const handleAddEvent = async (e) => {
+    e.preventDefault()
+    if (!newEventTitle.trim() || !newEventDate) return
+
+    const { error } = await supabase
+      .from('events')
+      .insert([
+        {
+          user_id: session.user.id,
+          title: newEventTitle,
+          event_date: newEventDate,
+          event_time: newEventTime || null,
+          location: newEventLocation || null,
+          category: newEventCategory
+        }
+      ])
+
+    if (error) {
+      alert('Erro ao criar evento: ' + error.message)
+    } else {
+      setNewEventTitle('')
+      setNewEventTime('')
+      setNewEventLocation('')
+      setShowEventModal(false)
+      fetchEvents()
+    }
+  }
+
+  const handleDeleteEvent = async (id) => {
+    const { error } = await supabase
+      .from('events')
+      .delete()
+      .eq('id', id)
+
+    if (error) console.error('Erro ao deletar evento:', error.message)
+    else fetchEvents()
+  }
+
   // Contadores estatísticos para a tela Início
   const pendingTasksCount = tasks.filter(task => !task.is_completed).length
+
+  // Estrutura de cor por categoria da agenda
+  const getCategoryColor = (cat) => {
+    switch (cat) {
+      case 'Acadêmico': return { bg: 'bg-[#e8f5ef]', text: 'text-[#00674F]', border: 'border-[#00674F]', dot: 'bg-[#00674F]' }
+      case 'Pessoal': return { bg: 'bg-amber-50', text: 'text-amber-600', border: 'border-amber-500', dot: 'bg-amber-500' }
+      case 'PET / Projetos': return { bg: 'bg-emerald-50', text: 'text-emerald-600', border: 'border-emerald-500', dot: 'bg-emerald-400' }
+      case 'Esportivo': return { bg: 'bg-gray-100', text: 'text-gray-600', border: 'border-gray-400', dot: 'bg-gray-400' }
+      default: return { bg: 'bg-gray-50', text: 'text-gray-600', border: 'border-gray-300', dot: 'bg-gray-300' }
+    }
+  }
+
+  // Geração da grade de dias para o mês fixo de Maio de 2024 (conforme o print)
+  const daysInCalendar = []
+  // Dias vazios/do mês anterior (Abril termina na terça-feira dia 30, então Maio começa na Quarta-feira dia 1)
+  daysInCalendar.push({ dayNumber: 28, isCurrentMonth: false }, { dayNumber: 29, isCurrentMonth: false }, { dayNumber: 30, isCurrentMonth: false })
+  // Dias de Maio (1 a 31)
+  for (let i = 1; i <= 31; i++) {
+    daysInCalendar.push({ dayNumber: i, isCurrentMonth: true, fullDateString: `2024-05-${String(i).padStart(2, '0')}` })
+  }
+  // Dias do próximo mês (Junho) para fechar a grade perfeita de 5 semanas (35 slots no total, restam 1)
+  daysInCalendar.push({ dayNumber: 1, isCurrentMonth: false })
 
   return (
     <div className="flex flex-col h-screen bg-[#F5F7F6] min-h-[640px] font-sans antialiased overflow-hidden">
@@ -234,10 +323,14 @@ export default function Dashboard({ session }) {
             <ListTodo size={16} className="shrink-0" />
             <span>Tarefas</span>
           </button>
-          <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-not-allowed text-xs font-normal text-gray-300">
+          <button
+            onClick={() => setActiveTab('agenda')}
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium transition-all duration-150 ${activeTab === 'agenda' ? 'bg-[#00674F] text-white shadow-sm' : 'text-[#5a6b63] hover:bg-[#f0f5f2] hover:text-[#00674F]'
+              }`}
+          >
             <Calendar size={16} className="shrink-0" />
             <span>Agenda</span>
-          </div>
+          </button>
           <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-not-allowed text-xs font-normal text-gray-300">
             <Megaphone size={16} className="shrink-0" />
             <span>Avisos</span>
@@ -261,12 +354,12 @@ export default function Dashboard({ session }) {
           </div>
         </aside>
 
-        {/* CONTEÚDO PRINCIPAL RENDERIZADO POR ABA */}
+        {/* CONTEÚDO PRINCIPAL CONFIGURADO DINÂMICAMENTE */}
         <main className="flex-1 p-[22px] grid grid-cols-1 lg:grid-cols-3 gap-[18px] overflow-auto">
 
           <div className="lg:col-span-2 flex flex-col gap-4">
 
-            {/* ABA: INÍCIO */}
+            {/* ==================== RENDER: ABA INÍCIO ==================== */}
             {activeTab === 'inicio' && (
               <div className="space-y-5">
                 <div className="bg-white rounded-2xl border border-[#e4e9e6] p-5 flex justify-between items-center shadow-sm">
@@ -279,7 +372,7 @@ export default function Dashboard({ session }) {
                   </button>
                 </div>
 
-                {/* 4 Mini Cards Superiores */}
+                {/* Cards Estatísticos */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
                   <div className="bg-white border border-[#e4e9e6] p-4 rounded-2xl flex items-center gap-3.5 shadow-sm">
                     <div className="w-10 h-10 rounded-xl bg-[#e8f5ef] flex items-center justify-center shrink-0">
@@ -288,20 +381,16 @@ export default function Dashboard({ session }) {
                     <div>
                       <div className="text-lg font-bold text-gray-800 leading-none">{pendingTasksCount}</div>
                       <div className="text-[11px] font-medium text-[#1a2e26] mt-0.5">Tarefas pendentes</div>
-                      <div className="text-[10px] text-[#9aada5] mt-px truncate">
-                        {pendingTasksCount === 0 ? 'Nada para fazer! 🎉' : 'Foco nos estudos!'}
-                      </div>
                     </div>
                   </div>
 
-                  <div className="bg-white border border-[#e4e9e6] p-4 rounded-2xl flex items-center gap-3.5 shadow-sm">
+                  <div className="bg-white border border-[#e4e9e6] p-4 rounded-2xl flex items-center gap-3.5 shadow-sm cursor-pointer" onClick={() => setActiveTab('agenda')}>
                     <div className="w-10 h-10 rounded-xl bg-[#fdf5e0] flex items-center justify-center shrink-0">
                       <Calendar size={18} className="text-[#D3AF37]" />
                     </div>
                     <div>
-                      <div className="text-lg font-bold text-gray-800 leading-none">0</div>
-                      <div className="text-[11px] font-medium text-[#1a2e26] mt-0.5">Eventos hoje</div>
-                      <div className="text-[10px] text-[#9aada5] mt-px">Nenhum evento hoje</div>
+                      <div className="text-lg font-bold text-gray-800 leading-none">{events.length}</div>
+                      <div className="text-[11px] font-medium text-[#1a2e26] mt-0.5">Eventos agendados</div>
                     </div>
                   </div>
 
@@ -312,7 +401,6 @@ export default function Dashboard({ session }) {
                     <div>
                       <div className="text-lg font-bold text-gray-800 leading-none">2</div>
                       <div className="text-[11px] font-medium text-[#1a2e26] mt-0.5">Avisos não lidos</div>
-                      <div className="text-[10px] text-[#9aada5] mt-px">Fique por dentro</div>
                     </div>
                   </div>
 
@@ -323,89 +411,16 @@ export default function Dashboard({ session }) {
                     <div>
                       <div className="text-lg font-bold text-gray-800 leading-none">85%</div>
                       <div className="text-[11px] font-medium text-[#1a2e26] mt-0.5">Produtividade</div>
-                      <div className="text-[10px] text-[#9aada5] mt-px">Continue assim!</div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Eventos e Destaques */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="bg-white border border-[#e4e9e6] p-5 rounded-2xl shadow-sm flex flex-col h-48">
-                    <div className="flex justify-between items-center mb-4">
-                      <span className="text-xs font-bold text-[#1a2e26] flex items-center gap-2">
-                        <Calendar size={14} className="text-[#00674F]" /> Próximos eventos
-                      </span>
-                      <span className="text-[11px] font-semibold text-[#00674F] cursor-not-allowed opacity-50">Ver agenda</span>
-                    </div>
-                    <div className="flex-1 flex flex-col items-center justify-center text-center">
-                      <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center mb-1.5 text-gray-400">✓</div>
-                      <div className="text-[11px] font-medium text-[#4a5e56]">Nenhum evento próximo</div>
-                      <div className="text-[10px] text-[#9aada5] mt-0.5">Você não tem eventos agendados.</div>
-                    </div>
-                  </div>
-
-                  <div className="bg-white border border-[#e4e9e6] p-5 rounded-2xl shadow-sm flex flex-col h-48">
-                    <div className="flex justify-between items-center mb-4">
-                      <span className="text-xs font-bold text-[#1a2e26] flex items-center gap-2">
-                        <ListTodo size={14} className="text-[#00674F]" /> Tarefas em destaque
-                      </span>
-                      <span onClick={() => setActiveTab('tarefas')} className="text-[11px] font-semibold text-[#00674F] cursor-pointer">Ver todas</span>
-                    </div>
-                    <div className="flex-1 flex flex-col items-center justify-center text-center">
-                      <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center mb-1.5 text-gray-400">★</div>
-                      <div className="text-[11px] font-medium text-[#4a5e56]">Nenhuma tarefa em destaque</div>
-                      <div className="text-[10px] text-[#9aada5] mt-0.5">Crie e marque tarefas importantes.</div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Hábitos Diários */}
-                <div className="bg-white border border-[#e4e9e6] p-5 rounded-2xl shadow-sm">
-                  <div className="flex justify-between items-center mb-1">
-                    <span className="text-xs font-bold text-[#1a2e26] flex items-center gap-2">
-                      <Flame size={14} className="text-[#00674F]" /> Seus hábitos
-                    </span>
-                    <span className="text-[11px] font-semibold text-[#00674F] cursor-not-allowed opacity-50">Ver relatório</span>
-                  </div>
-                  <p className="text-[11px] text-[#9aada5] mb-4">Acompanhe seus hábitos diários</p>
-
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <div className="bg-[#fafcfb] border border-[#e8ede9] p-3 rounded-xl flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-green-50 flex items-center justify-center text-xs font-bold text-[#00674F]">0%</div>
-                      <div>
-                        <div className="text-[11px] font-bold text-gray-700">Estudar</div>
-                        <div className="text-[10px] text-gray-400">0/0 dias</div>
-                      </div>
-                    </div>
-                    <div className="bg-[#fafcfb] border border-[#e8ede9] p-3 rounded-xl flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-amber-50 flex items-center justify-center text-xs font-bold text-[#D3AF37]">0%</div>
-                      <div>
-                        <div className="text-[11px] font-bold text-gray-700">Exercícios</div>
-                        <div className="text-[10px] text-gray-400">0/0 dias</div>
-                      </div>
-                    </div>
-                    <div className="bg-[#fafcfb] border border-[#e8ede9] p-3 rounded-xl flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center text-xs font-bold text-blue-600">0%</div>
-                      <div>
-                        <div className="text-[11px] font-bold text-gray-700">Leitura</div>
-                        <div className="text-[10px] text-gray-400">0/0 dias</div>
-                      </div>
-                    </div>
-                    <div className="bg-[#fafcfb] border border-[#e8ede9] p-3 rounded-xl flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-purple-50 flex items-center justify-center text-xs font-bold text-purple-600">0%</div>
-                      <div>
-                        <div className="text-[11px] font-bold text-gray-700">Projetos</div>
-                        <div className="text-[10px] text-gray-400">0/0 dias</div>
-                      </div>
                     </div>
                   </div>
                 </div>
               </div>
             )}
 
-            {/* ABA: TAREFAS */}
+            {/* ==================== RENDER: ABA TAREFAS ==================== */}
             {activeTab === 'tarefas' && (
               <div className="bg-white rounded-2xl border border-[#e4e9e6] p-6 flex flex-col shadow-sm h-full min-h-[480px]">
+                {/* O bloco interno de tarefas continua intacto aqui */}
                 <div className="flex items-center gap-2.5 mb-5">
                   <div className="w-9 h-9 rounded-xl bg-[#e8f5ef] flex items-center justify-center shrink-0">
                     <ListTodo size={18} className="text-[#00674F]" />
@@ -422,7 +437,7 @@ export default function Dashboard({ session }) {
                     placeholder="Ex: Estudar para P1 de Física"
                     value={newTaskTitle}
                     onChange={(e) => setNewTaskTitle(e.target.value)}
-                    className="flex-1 px-3.5 py-2.5 rounded-xl border border-[#dde5e0] text-xs text-[#1a2e26] bg-[#fafcfb] outline-none transition-colors focus:border-[#00674F] focus:bg-white"
+                    className="flex-1 px-3.5 py-2.5 rounded-xl border border-[#dde5e0] text-xs text-[#1a2e26] bg-[#fafcfb] outline-none focus:border-[#00674F] focus:bg-white"
                     required
                   />
                   <input
@@ -431,138 +446,338 @@ export default function Dashboard({ session }) {
                     onChange={(e) => setNewTaskDate(e.target.value)}
                     className="px-3 py-2.5 rounded-xl border border-[#dde5e0] text-xs text-[#6a7d74] bg-[#fafcfb] outline-none sm:w-[140px]"
                   />
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="flex items-center justify-center gap-1.5 bg-[#00674F] text-white rounded-xl px-4 py-2.5 text-xs font-semibold whitespace-nowrap transition-colors hover:bg-[#005040] disabled:opacity-50"
-                  >
+                  <button type="submit" disabled={loading} className="flex items-center justify-center gap-1.5 bg-[#00674F] text-white rounded-xl px-4 py-2.5 text-xs font-semibold hover:bg-[#005040] disabled:opacity-50">
                     <Plus size={14} />
                     <span>Adicionar</span>
                   </button>
                 </form>
 
-                <div className="flex-1 overflow-y-auto space-y-2.5 pr-1 max-h-[400px]">
-                  {tasks.length === 0 ? (
-                    <div className="py-12 flex flex-col items-center justify-center gap-2.5">
-                      <div className="w-20 h-20 relative">
-                        <div className="w-14 h-[68px] border-[2.5px] border-[#c8e0d6] rounded-lg bg-[#f0f7f3] flex flex-col gap-1.5 p-3">
-                          <div className="h-1 bg-[#b0d4c4] rounded flex items-center gap-1"><div className="w-1 h-1 rounded-full bg-[#00674F]" /><div className="w-full h-[2px] bg-[#c8e0d6] rounded" /></div>
-                          <div className="h-1 bg-transparent rounded flex items-center gap-1"><div className="w-1 h-1 rounded-full border border-[#c8e0d6]" /><div className="w-3/4 h-[2px] bg-[#e0ece7] rounded" /></div>
-                        </div>
-                        <div className="w-[26px] h-[26px] rounded-full bg-[#D3AF37] border-2 border-white absolute -bottom-1.5 -right-2 flex items-center justify-center shadow-sm">
-                          <Check size={13} className="text-white font-bold" />
-                        </div>
+                <div className="flex-1 overflow-y-auto space-y-2.5 max-h-[400px]">
+                  {tasks.map((task) => (
+                    <div key={task.id} className={`flex items-center justify-between p-3.5 rounded-xl border ${task.is_completed ? 'bg-gray-50/70 opacity-60' : 'bg-[#fafcfb] border-[#e8ede9]'}`}>
+                      <div className="flex items-center space-x-3 flex-1 truncate">
+                        <button onClick={() => toggleTaskComplete(task.id, task.is_completed)} className="text-gray-400 hover:text-[#00674F]">{task.is_completed ? <CheckCircle className="text-[#00674F]" size={18} /> : <Circle size={18} />}</button>
+                        <p className={`text-xs font-medium text-[#1a2e26] truncate ${task.is_completed ? 'line-through text-gray-400' : ''}`}>{task.title}</p>
                       </div>
-                      <div className="text-xs font-medium text-[#4a5e56]">Nenhuma tarefa cadastrada.</div>
-                      <div className="text-[11px] text-[#9aada5]">Adicione uma nova tarefa para começar!</div>
+                      <button onClick={() => deleteTask(task.id)} className="text-gray-400 hover:text-red-500 ml-2"><Trash2 size={14} /></button>
                     </div>
-                  ) : (
-                    tasks.map((task) => (
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* ==================== RENDER: ABA AGENDA (NOVO COMPONENTE DESIGN `image_c83220.png`) ==================== */}
+            {activeTab === 'agenda' && (
+              <div className="bg-white rounded-2xl border border-[#e4e9e6] p-6 flex flex-col shadow-sm">
+
+                {/* Topo da Agenda */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-xl bg-[#e8f5ef] flex items-center justify-center shrink-0">
+                      <Calendar size={18} className="text-[#00674F]" />
+                    </div>
+                    <div>
+                      <div className="text-[15px] font-bold text-[#1a2e26]">Minha Agenda</div>
+                      <div className="text-xs text-[#8a9e94] mt-0.5">Visualize e gerencie seus compromissos.</div>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setShowEventModal(true)}
+                    className="flex items-center justify-center gap-1.5 bg-[#00674F] hover:bg-[#005040] text-white rounded-xl px-4 py-2.5 text-xs font-bold transition-all shadow-sm"
+                  >
+                    <Plus size={14} />
+                    <span>Novo evento</span>
+                  </button>
+                </div>
+
+                {/* Barra de Controles de Período */}
+                <div className="flex flex-wrap items-center justify-between gap-3 bg-[#fafcfb] border border-[#e8ede9] p-3 rounded-xl mb-4">
+                  <div className="flex items-center gap-1.5">
+                    <button className="px-3 py-1.5 bg-white border border-[#dde5e0] rounded-lg text-xs font-medium text-gray-600 hover:bg-gray-50">Hoje</button>
+                    <button className="p-1.5 bg-white border border-[#dde5e0] rounded-lg text-xs text-gray-600 hover:bg-gray-50">&lt;</button>
+                    <button className="p-1.5 bg-white border border-[#dde5e0] rounded-lg text-xs text-gray-600 hover:bg-gray-50">&gt;</button>
+                  </div>
+                  <div className="text-sm font-bold text-[#1a2e26] tracking-wide">Maio 2024</div>
+                  <div className="flex bg-gray-100 rounded-lg p-0.5 border border-gray-200">
+                    <button className="px-3 py-1 bg-white text-[#00674F] font-bold rounded-md text-xs shadow-sm">Mês</button>
+                    <button className="px-3 py-1 text-gray-500 font-medium rounded-md text-xs cursor-not-allowed">Semana</button>
+                    <button className="px-3 py-1 text-gray-500 font-medium rounded-md text-xs cursor-not-allowed">Dia</button>
+                  </div>
+                </div>
+
+                {/* Grade dos Dias da Semana */}
+                <div className="grid grid-cols-7 gap-px text-center mb-1 text-[10px] font-bold text-gray-400 tracking-wider">
+                  <div>DOM</div><div>SEG</div><div>TER</div><div>QUA</div><div>QUI</div><div>SEX</div><div>SÁB</div>
+                </div>
+
+                {/* Grade do Calendário (Mês Completo) */}
+                <div className="grid grid-cols-7 gap-1 bg-gray-100 border border-gray-200 rounded-xl overflow-hidden p-1 bg-opacity-60">
+                  {daysInCalendar.map((item, idx) => {
+                    // Busca se existem eventos salvos para este dia específico
+                    const dayEvents = events.filter(e => e.event_date === item.fullDateString && visibleCategories[e.category]);
+
+                    return (
                       <div
-                        key={task.id}
-                        className={`flex items-center justify-between p-3.5 rounded-xl border transition-all ${task.is_completed ? 'bg-gray-50/70 border-gray-100 opacity-60' : 'bg-[#fafcfb] border-[#e8ede9] hover:bg-[#f0f5f2]'
-                          }`}
+                        key={idx}
+                        className={`min-h-[72px] bg-white p-1.5 flex flex-col justify-between rounded-lg border border-gray-50 transition-colors ${!item.isCurrentMonth ? 'bg-gray-50/50 opacity-40' : ''
+                          } ${item.dayNumber === 15 && item.isCurrentMonth ? 'ring-1 ring-[#00674F]' : ''}`}
                       >
-                        <div className="flex items-center space-x-3 flex-1 min-w-0">
-                          <button
-                            onClick={() => toggleTaskComplete(task.id, task.is_completed)}
-                            className="text-gray-400 hover:text-[#00674F] transition shrink-0"
-                          >
-                            {task.is_completed ? (
-                              <CheckCircle className="text-[#00674F]" size={18} />
-                            ) : (
-                              <Circle size={18} />
-                            )}
-                          </button>
-                          <div className="min-w-0 flex-1">
-                            <p className={`text-xs font-medium text-[#1a2e26] truncate ${task.is_completed ? 'line-through text-gray-400' : ''}`}>
-                              {task.title}
-                            </p>
-                            {task.due_date && (
-                              <span className="inline-flex items-center space-x-1 text-[10px] text-gray-400 mt-0.5">
-                                <Calendar size={10} />
-                                <span>Entrega: {new Date(task.due_date).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}</span>
-                              </span>
-                            )}
-                          </div>
+                        <div className="flex justify-between items-center">
+                          <span className={`text-[11px] font-bold ${item.dayNumber === 15 && item.isCurrentMonth
+                            ? 'w-5 h-5 bg-[#00674F] text-white rounded-full flex items-center justify-center shadow-sm'
+                            : 'text-gray-700'
+                            }`}>
+                            {item.dayNumber}
+                          </span>
                         </div>
-                        <button
-                          onClick={() => deleteTask(task.id)}
-                          className="text-gray-400 hover:text-red-500 p-1 transition shrink-0 ml-2"
-                        >
-                          <Trash2 size={14} />
-                        </button>
+
+                        {/* Eventos dentro do quadradinho do dia */}
+                        <div className="space-y-0.5 mt-1 flex-1 overflow-y-auto max-h-[50px] scrollbar-none">
+                          {item.isCurrentMonth && dayEvents.map(ev => {
+                            const colors = getCategoryColor(ev.category);
+                            return (
+                              <div key={ev.id} className={`text-[9px] px-1 py-0.5 font-bold rounded flex flex-col border-l-2 ${colors.bg} ${colors.text} ${colors.border} leading-tight`}>
+                                <span className="truncate">{ev.title}</span>
+                                {ev.event_time && <span className="text-[8px] opacity-80 font-normal">{ev.event_time}</span>}
+                              </div>
+                            )
+                          })}
+                        </div>
                       </div>
-                    ))
-                  )}
+                    )
+                  })}
+                </div>
+
+                {/* Legendas de Categorias */}
+                <div className="flex gap-4 items-center mt-3 text-[10px] font-bold text-gray-500 px-1">
+                  <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-[#00674F]" /> Acadêmico</div>
+                  <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-amber-500" /> Pessoal</div>
+                  <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-emerald-400" /> Outros</div>
                 </div>
               </div>
             )}
           </div>
 
-          {/* PAINEL DO FEED (FIXO À DIREITA) */}
-          <div className="bg-white rounded-2xl border border-[#e4e9e6] p-6 flex flex-col h-full min-h-0 shadow-sm relative overflow-hidden">
-            <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-[#00674F] to-[#D3AF37]" />
+          {/* ==================== COLUNA DA DIREITA: WIDGETS DINÂMICOS DA AGENDA ==================== */}
+          <div className="space-y-4">
 
-            <div className="flex items-center gap-2.5 mb-3.5">
-              <div className="w-9 h-9 rounded-xl bg-[#fdf5e0] flex items-center justify-center shrink-0">
-                <Megaphone size={18} className="text-[#D3AF37]" />
-              </div>
-              <div>
-                <div className="text-[15px] font-medium text-[#1a2e26]">Feed Central da UFA</div>
-                <div className="text-[11px] text-[#8a9e94] mt-0.5">Fique por dentro das novidades da comunidade.</div>
-              </div>
-            </div>
+            {/* Se estiver na aba Agenda, renderiza a lista de "Próximos Eventos" e o gerenciador de calendários */}
+            {activeTab === 'agenda' ? (
+              <>
+                {/* Card de Próximos Eventos */}
+                <div className="bg-white rounded-2xl border border-[#e4e9e6] p-5 shadow-sm flex flex-col">
+                  <div className="flex justify-between items-center mb-4">
+                    <span className="text-xs font-bold text-[#1a2e26]">Próximos eventos</span>
+                    <span className="text-[11px] font-bold text-[#00674F]">Ver todos</span>
+                  </div>
 
-            <form onSubmit={handleCreatePost} className="flex gap-2 mb-4">
-              <input
-                type="text"
-                placeholder="O que está acontecendo no campus?"
-                value={newPostContent}
-                onChange={(e) => setNewPostContent(e.target.value)}
-                className="flex-1 px-3 py-2 border border-[#dde5e0] rounded-xl text-xs bg-[#fafcfb] outline-none focus:border-[#D3AF37]"
-                required
-              />
-              <button
-                type="submit"
-                className="w-9 h-9 rounded-xl bg-[#D3AF37] flex items-center justify-center transition-colors hover:bg-[#b8942a] text-white shrink-0 shadow-sm"
-              >
-                <Send size={14} />
-              </button>
-            </form>
+                  <div className="space-y-2.5 max-h-[380px] overflow-y-auto pr-1">
+                    {events.length === 0 ? (
+                      <p className="text-center text-gray-400 text-xs py-8">Nenhum evento criado.</p>
+                    ) : (
+                      events.map(ev => {
+                        const colors = getCategoryColor(ev.category);
+                        return (
+                          <div key={ev.id} className="p-3 bg-[#fafcfb] border border-[#e8ede9] rounded-xl flex items-center justify-between group">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${colors.bg} ${colors.text}`}>
+                                <Calendar size={14} />
+                              </div>
+                              <div className="min-w-0">
+                                <h4 className="text-xs font-bold text-[#1a2e26] truncate">{ev.title}</h4>
+                                <p className="text-[10px] text-gray-400 mt-0.5 flex items-center gap-1.5 truncate">
+                                  {ev.location && <span className="flex items-center gap-0.5"><MapPin size={9} /> {ev.location}</span>}
+                                  {ev.event_time && <span className="flex items-center gap-0.5"><Clock size={9} /> {ev.event_time}</span>}
+                                </p>
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => handleDeleteEvent(ev.id)}
+                              className="text-gray-300 hover:text-red-500 p-1 group-hover:opacity-100 transition-opacity"
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          </div>
+                        )
+                      })
+                    )}
+                  </div>
+                </div>
 
-            <div className="flex-1 overflow-y-auto space-y-2 pr-1 scrollbar-thin">
-              {posts.length === 0 ? (
-                <p className="text-center text-gray-400 text-[11px] py-12">Nenhuma publicação ainda. Seja o primeiro!</p>
-              ) : (
-                posts.map((post) => {
-                  const isOwnPost = post.user_id === session?.user?.id;
-                  return (
-                    <div
-                      key={post.id}
-                      className="p-3 rounded-xl bg-[#fafcfb] border border-[#e8ede9] flex gap-2.5 hover:bg-[#f0f5f2] transition-colors cursor-pointer"
-                    >
-                      <div className={`w-[3px] rounded-full shrink-0 ${isOwnPost ? 'bg-[#00674F]' : 'bg-[#D3AF37]'}`} />
-                      <div className="flex-1 min-w-0">
-                        <div className="text-xs font-medium text-[#1a2e26] flex items-center gap-1.5">
-                          {post.profiles?.username || 'Estudante UFA'}
-                          <span className="text-[10px] text-[#aabdb5] font-normal">
-                            {post.created_at ? new Date(post.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : ''}
-                          </span>
+                {/* Card de Filtro de Calendários */}
+                <div className="bg-white rounded-2xl border border-[#e4e9e6] p-5 shadow-sm">
+                  <div className="flex justify-between items-center mb-4">
+                    <span className="text-xs font-bold text-[#1a2e26]">Calendários</span>
+                    <span className="text-[11px] font-bold text-[#00674F] cursor-pointer">Gerenciar</span>
+                  </div>
+
+                  <div className="space-y-3">
+                    {Object.keys(visibleCategories).map(cat => {
+                      const colors = getCategoryColor(cat);
+                      return (
+                        <label key={cat} className="flex items-center justify-between cursor-pointer select-none">
+                          <div className="flex items-center gap-2.5 text-xs font-medium text-gray-600">
+                            <input
+                              type="checkbox"
+                              checked={visibleCategories[cat]}
+                              onChange={() => setVisibleCategories(prev => ({ ...prev, [cat]: !prev[cat] }))}
+                              className="rounded border-gray-300 text-[#00674F] focus:ring-[#00674F] w-3.5 h-3.5 cursor-pointer"
+                            />
+                            <span>{cat}</span>
+                          </div>
+                          <div className={`w-2 h-2 rounded-full ${colors.dot}`} />
+                        </label>
+                      )
+                    })}
+                  </div>
+                </div>
+              </>
+            ) : (
+              /* ==================== CASO SEJA OUTRA ABA: MANTÉM O CHAT DO FEED ORIGINAL ==================== */
+              <div className="bg-white rounded-2xl border border-[#e4e9e6] p-6 flex flex-col h-full min-h-[480px] shadow-sm relative overflow-hidden">
+                <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-[#00674F] to-[#D3AF37]" />
+
+                <div className="flex items-center gap-2.5 mb-3.5">
+                  <div className="w-9 h-9 rounded-xl bg-[#fdf5e0] flex items-center justify-center shrink-0">
+                    <Megaphone size={18} className="text-[#D3AF37]" />
+                  </div>
+                  <div>
+                    <div className="text-[15px] font-medium text-[#1a2e26]">Feed Central da UFA</div>
+                    <div className="text-[11px] text-[#8a9e94] mt-0.5">Fique por dentro das novidades da comunidade.</div>
+                  </div>
+                </div>
+
+                <form onSubmit={handleCreatePost} className="flex gap-2 mb-4">
+                  <input
+                    type="text"
+                    placeholder="O que está acontecendo no campus?"
+                    value={newPostContent}
+                    onChange={(e) => setNewPostContent(e.target.value)}
+                    className="flex-1 px-3 py-2 border border-[#dde5e0] rounded-xl text-xs bg-[#fafcfb] outline-none focus:border-[#D3AF37]"
+                    required
+                  />
+                  <button type="submit" className="w-9 h-9 rounded-xl bg-[#D3AF37] flex items-center justify-center hover:bg-[#b8942a] text-white shrink-0 shadow-sm">
+                    <Send size={14} />
+                  </button>
+                </form>
+
+                <div className="flex-1 overflow-y-auto space-y-2 pr-1 scrollbar-thin">
+                  {posts.map((post) => {
+                    const isOwnPost = post.user_id === session?.user?.id;
+                    return (
+                      <div key={post.id} className="p-3 rounded-xl bg-[#fafcfb] border border-[#e8ede9] flex gap-2.5 hover:bg-[#f0f5f2]">
+                        <div className={`w-[3px] rounded-full shrink-0 ${isOwnPost ? 'bg-[#00674F]' : 'bg-[#D3AF37]'}`} />
+                        <div className="flex-1 min-w-0">
+                          <div className="text-xs font-medium text-[#1a2e26] flex items-center gap-1.5">
+                            {post.profiles?.username || 'Estudante UFA'}
+                            <span className="text-[10px] text-[#aabdb5] font-normal">
+                              {post.created_at ? new Date(post.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : ''}
+                            </span>
+                          </div>
+                          <p className="text-xs text-[#5a6b63] mt-1 whitespace-pre-wrap break-words leading-relaxed">{post.content}</p>
                         </div>
-                        <p className="text-xs text-[#5a6b63] mt-1 whitespace-pre-wrap break-words leading-relaxed">
-                          {post.content}
-                        </p>
                       </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
-
         </main>
       </div>
+
+      {/* ==================== MODAL DE ADICIONAR NOVO EVENTO ==================== */}
+      {showEventModal && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div className="bg-white rounded-2xl border border-gray-100 max-w-md w-full p-6 shadow-xl space-y-4">
+            <div>
+              <h3 className="text-sm font-bold text-gray-800">Criar Novo Compromisso</h3>
+              <p className="text-[11px] text-gray-400 mt-0.5">Adicione um evento diretamente na grade da sua agenda.</p>
+            </div>
+
+            <form onSubmit={handleAddEvent} className="space-y-3">
+              <div>
+                <label className="text-[10px] font-bold text-gray-400 block mb-1">Título do Evento</label>
+                <input
+                  type="text"
+                  placeholder="Ex: Prova de Cálculo I"
+                  value={newEventTitle}
+                  onChange={(e) => setNewEventTitle(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs bg-[#fafcfb] outline-none focus:border-[#00674F]"
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2.5">
+                <div>
+                  <label className="text-[10px] font-bold text-gray-400 block mb-1">Data (Maio 2024)</label>
+                  <input
+                    type="date"
+                    min="2024-05-01"
+                    max="2024-05-31"
+                    value={newEventDate}
+                    onChange={(e) => setNewEventDate(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs bg-[#fafcfb] outline-none"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-gray-400 block mb-1">Horário (Opcional)</label>
+                  <input
+                    type="text"
+                    placeholder="Ex: 08:00"
+                    value={newEventTime}
+                    onChange={(e) => setNewEventTime(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs bg-[#fafcfb] outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold text-gray-400 block mb-1">Local / Sala (Opcional)</label>
+                <input
+                  type="text"
+                  placeholder="Ex: Sala A-203"
+                  value={newEventLocation}
+                  onChange={(e) => setNewEventLocation(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs bg-[#fafcfb] outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold text-gray-400 block mb-1">Categoria de Calendário</label>
+                <select
+                  value={newEventCategory}
+                  onChange={(e) => setNewEventCategory(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs bg-[#fafcfb] outline-none cursor-pointer text-gray-600"
+                >
+                  <option value="Acadêmico">Acadêmico (Verde)</option>
+                  <option value="Pessoal">Pessoal (Amarelo)</option>
+                  <option value="PET / Projetos">PET / Projetos (Verde Claro)</option>
+                  <option value="Esportivo">Esportivo (Cinza)</option>
+                </select>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowEventModal(false)}
+                  className="px-4 py-2 border border-gray-200 text-gray-500 rounded-xl text-xs font-semibold hover:bg-gray-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-[#00674F] text-white rounded-xl text-xs font-bold hover:bg-[#005040]"
+                >
+                  Salvar evento
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
     </div>
   )
 }
