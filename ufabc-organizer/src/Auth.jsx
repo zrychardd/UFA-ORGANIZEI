@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { supabase } from './supabaseClient'
-import { GraduationCap, Lock, Mail, User, Moon, Sun } from 'lucide-react'
+import { Lock, Mail, User, Moon, Sun, Eye, EyeOff } from 'lucide-react'
 
 export default function Auth({ onLoginSuccess, isDark, toggleDark }) {
   const [isSignUp, setIsSignUp] = useState(false)
@@ -8,6 +8,7 @@ export default function Auth({ onLoginSuccess, isDark, toggleDark }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [username, setUsername] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [message, setMessage] = useState({ type: '', text: '' })
 
   const handleAuth = async (e) => {
@@ -17,150 +18,137 @@ export default function Auth({ onLoginSuccess, isDark, toggleDark }) {
 
     if (isSignUp) {
       const { data, error } = await supabase.auth.signUp({ email, password })
-
       if (error) {
         setMessage({ type: 'error', text: error.message })
       } else if (data?.user) {
         const { error: profileError } = await supabase
           .from('profiles')
-          .insert([{ id: data.user.id, username: username }])
-
+          .insert([{ id: data.user.id, username }])
         if (profileError) {
           setMessage({ type: 'error', text: 'Conta criada, mas erro ao salvar perfil: ' + profileError.message })
         } else {
-          setMessage({ type: 'success', text: 'Cadastro realizado com sucesso! Verifique seu e-mail para confirmar.' })
+          setMessage({ type: 'success', text: 'Cadastro realizado! Verifique seu e-mail para confirmar.' })
         }
       }
     } else {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password })
-
-      if (error) {
-        setMessage({ type: 'error', text: error.message })
-      } else if (data?.user) {
-        onLoginSuccess(data.user)
-      }
+      if (error) setMessage({ type: 'error', text: error.message })
+      else if (data?.user) onLoginSuccess(data.user)
     }
     setLoading(false)
   }
 
+  const inputClass = `w-full pl-10 pr-4 py-[11px] rounded-[10px] text-[13px] outline-none border transition-colors ${
+    isDark
+      ? 'bg-gray-800 border-gray-700 text-gray-100 placeholder-gray-500 focus:border-[#00674F]'
+      : 'bg-[#fafcfb] border-[#dde5e0] text-[#1a2e26] placeholder-[#b0bdb7] focus:border-[#00674F]'
+  }`
+
+  const labelClass = `block text-[12px] font-medium mb-1.5 ${isDark ? 'text-gray-300' : 'text-[#4a5e56]'}`
+
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex flex-col justify-center items-center p-4 transition-colors duration-300">
+    <div className={`min-h-screen flex flex-col justify-center items-center p-4 transition-colors duration-300 ${isDark ? 'bg-gray-950' : 'bg-[#F5F7F6]'}`}>
 
-      {/* Botão Dark Mode flutuante no topo da tela de login */}
-      <div className="absolute top-4 right-4">
-        <button
-          onClick={toggleDark}
-          title={isDark ? 'Ativar modo claro' : 'Ativar modo escuro'}
-          className="p-2 rounded-lg bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 transition"
-        >
-          {isDark ? <Sun size={18} /> : <Moon size={18} />}
-        </button>
-      </div>
+      {/* dark toggle */}
+      <button onClick={toggleDark} title={isDark ? 'Modo claro' : 'Modo escuro'}
+        className={`absolute top-4 right-4 p-2 rounded-[10px] transition-colors ${isDark ? 'bg-gray-800 text-gray-300 hover:bg-gray-700' : 'bg-white text-[#5a6b63] hover:bg-[#f0f5f2]'} border ${isDark ? 'border-gray-700' : 'border-[#dde5e0]'}`}>
+        {isDark ? <Sun size={17} /> : <Moon size={17} />}
+      </button>
 
-      <div className="bg-white dark:bg-gray-900 p-8 rounded-xl shadow-md w-full max-w-md border-t-4 border-ufabc-verde dark:border-emerald-500 transition-colors duration-300">
+      {/* card */}
+      <div className={`w-full max-w-md rounded-[20px] overflow-hidden transition-colors ${isDark ? 'bg-gray-900 border-gray-800' : 'bg-white border-[#e4e9e6]'} border`}
+        style={{ boxShadow: isDark ? '0 20px 60px rgba(0,0,0,0.4)' : '0 20px 60px rgba(0,103,79,0.08)' }}>
 
-        {/* Cabeçalho / Logo */}
-        <div className="text-center mb-8">
-          <div className="inline-flex p-3 bg-ufabc-verde/10 dark:bg-emerald-500/10 rounded-full text-ufabc-verde dark:text-emerald-400 mb-3">
-            <GraduationCap size={40} />
+        {/* top gradient bar */}
+        <div className="h-1" style={{ background: 'linear-gradient(90deg,#00674F,#D3AF37)' }} />
+
+        <div className="p-8">
+          {/* logo */}
+          <div className="flex flex-col items-center mb-8">
+            <svg width="72" height="72" viewBox="0 0 58 58" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginBottom: '12px' }}>
+              <path d="M10 6 H36 L46 16 V50 Q46 54 42 54 H10 Q6 54 6 50 V10 Q6 6 10 6 Z" fill="none" stroke="#00674F" strokeWidth="3" strokeLinejoin="round"/>
+              <path d="M36 6 L36 16 L46 16" fill="none" stroke="#D3AF37" strokeWidth="3" strokeLinejoin="round"/>
+              <path d="M36 6 L46 16" fill="#D3AF37"/>
+              <circle cx="16" cy="23" r="2.2" fill="#00674F"/>
+              <line x1="21" y1="23" x2="36" y2="23" stroke="#00674F" strokeWidth="2.5" strokeLinecap="round"/>
+              <circle cx="16" cy="31" r="2.2" fill="#00674F"/>
+              <line x1="21" y1="31" x2="36" y2="31" stroke="#00674F" strokeWidth="2.5" strokeLinecap="round"/>
+              <circle cx="16" cy="39" r="2.2" fill="#00674F"/>
+              <line x1="21" y1="39" x2="33" y2="39" stroke="#00674F" strokeWidth="2.5" strokeLinecap="round"/>
+              <path d="M18 47 L26 55 L44 36" fill="none" stroke="#D3AF37" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            <h1 className={`text-[22px] font-medium ${isDark ? 'text-gray-100' : 'text-[#1a2e26]'}`}>UFABC Organizador</h1>
+            <p className="text-[13px] mt-1" style={{ color: '#8a9e94' }}>
+              {isSignUp ? 'Crie sua conta de estudante' : 'Acesse seu painel acadêmico'}
+            </p>
           </div>
-          <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">UFABC Organizador</h1>
-          <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
-            {isSignUp ? 'Crie sua conta de estudante' : 'Acesse seu painel acadêmico'}
-          </p>
-        </div>
 
-        {/* Mensagens de Feedback */}
-        {message.text && (
-          <div className={`p-3 rounded-lg mb-4 text-sm font-medium ${
-            message.type === 'error'
-              ? 'bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400'
-              : 'bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400'
-          }`}>
-            {message.text}
-          </div>
-        )}
-
-        {/* Formulário */}
-        <form onSubmit={handleAuth} className="space-y-4">
-          {isSignUp && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nome Completo</label>
-              <div className="relative">
-                <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400 dark:text-gray-500">
-                  <User size={18} />
-                </span>
-                <input
-                  type="text"
-                  required
-                  placeholder="Seu nome"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-ufabc-verde dark:focus:ring-emerald-500 focus:border-transparent outline-none transition bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
-                />
-              </div>
+          {/* feedback */}
+          {message.text && (
+            <div className={`px-4 py-3 rounded-[10px] mb-5 text-[13px] font-medium ${
+              message.type === 'error'
+                ? isDark ? 'bg-red-900/30 text-red-400' : 'bg-red-50 text-red-600'
+                : isDark ? 'bg-emerald-900/30 text-emerald-400' : 'bg-emerald-50 text-emerald-700'
+            }`}>
+              {message.text}
             </div>
           )}
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">E-mail</label>
-            <div className="relative">
-              <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400 dark:text-gray-500">
-                <Mail size={18} />
-              </span>
-              <input
-                type="email"
-                required
-                placeholder="seu.email@aluno.ufabc.edu.br"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-ufabc-verde dark:focus:ring-emerald-500 focus:border-transparent outline-none transition bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
-              />
+          {/* form */}
+          <form onSubmit={handleAuth} className="flex flex-col gap-4">
+            {isSignUp && (
+              <div>
+                <label className={labelClass}>Nome Completo</label>
+                <div className="relative">
+                  <User size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: '#8a9e94' }} />
+                  <input type="text" required placeholder="Seu nome" value={username}
+                    onChange={e => setUsername(e.target.value)} className={inputClass} />
+                </div>
+              </div>
+            )}
+
+            <div>
+              <label className={labelClass}>E-mail</label>
+              <div className="relative">
+                <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: '#8a9e94' }} />
+                <input type="email" required placeholder="seu.email@aluno.ufabc.edu.br" value={email}
+                  onChange={e => setEmail(e.target.value)} className={inputClass} />
+              </div>
             </div>
-          </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Senha</label>
-            <div className="relative">
-              <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400 dark:text-gray-500">
-                <Lock size={18} />
-              </span>
-              <input
-                type="password"
-                required
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-ufabc-verde dark:focus:ring-emerald-500 focus:border-transparent outline-none transition bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
-              />
+            <div>
+              <label className={labelClass}>Senha</label>
+              <div className="relative">
+                <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: '#8a9e94' }} />
+                <input type={showPassword ? 'text' : 'password'} required placeholder="••••••••" value={password}
+                  onChange={e => setPassword(e.target.value)} className={`${inputClass} pr-10`} />
+                <button type="button" onClick={() => setShowPassword(p => !p)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors"
+                  style={{ color: '#8a9e94' }}>
+                  {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                </button>
+              </div>
             </div>
+
+            <button type="submit" disabled={loading}
+              className="w-full py-[11px] rounded-[10px] text-white text-[14px] font-medium mt-1 transition-opacity disabled:opacity-50 hover:opacity-88"
+              style={{ background: 'linear-gradient(135deg,#00674F,#004d3a)' }}>
+              {loading ? 'Carregando...' : isSignUp ? 'Criar Conta' : 'Entrar'}
+            </button>
+          </form>
+
+          {/* switcher */}
+          <div className={`text-center mt-6 pt-5 text-[13px] border-t ${isDark ? 'border-gray-800' : 'border-[#eef2ef]'}`}>
+            <span style={{ color: '#8a9e94' }}>
+              {isSignUp ? 'Já tem uma conta? ' : 'Novo por aqui? '}
+            </span>
+            <button onClick={() => { setIsSignUp(p => !p); setMessage({ type: '', text: '' }) }}
+              className="font-medium transition-opacity hover:opacity-75"
+              style={{ color: '#D3AF37' }}>
+              {isSignUp ? 'Faça Login' : 'Cadastre-se gratuito'}
+            </button>
           </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-ufabc-verde hover:bg-ufabc-verde/80 dark:bg-emerald-700 dark:hover:bg-emerald-600 text-white font-semibold py-2 rounded-lg transition shadow-sm disabled:opacity-50 mt-2"
-          >
-            {loading ? 'Carregando...' : isSignUp ? 'Criar Conta' : 'Entrar'}
-          </button>
-        </form>
-
-        {/* Alternador de abas */}
-        <div className="text-center mt-6 pt-4 border-t border-gray-100 dark:border-gray-700 text-sm">
-          <span className="text-gray-500 dark:text-gray-400">
-            {isSignUp ? 'Já tem uma conta?' : 'Novo por aqui?'}
-          </span>
-          <button
-            onClick={() => {
-              setIsSignUp(!isSignUp)
-              setMessage({ type: '', text: '' })
-            }}
-            className="text-ufabc-dourado hover:text-ufabc-dourado/80 font-semibold ml-1 transition"
-          >
-            {isSignUp ? 'Faça Login' : 'Cadastre-se gratuito'}
-          </button>
         </div>
-
       </div>
     </div>
   )
