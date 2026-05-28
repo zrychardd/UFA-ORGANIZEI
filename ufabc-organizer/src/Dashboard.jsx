@@ -4,7 +4,7 @@ import {
   Plus, CheckCircle, Circle, Trash2, LogOut, Calendar,
   ListTodo, Share2, Send, Home, Megaphone,
   LayoutGrid, BarChart, Settings, ChevronLeft, ChevronDown, Check,
-  Bell, Award, Flame, ChevronJanelas, MapPin, Clock
+  Bell, Award, Flame, MapPin, Clock
 } from 'lucide-react'
 
 export default function Dashboard({ session }) {
