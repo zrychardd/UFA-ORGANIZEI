@@ -27,6 +27,36 @@ const formatFullDate = (date) => {
     .replace(' de ', ' de ')
 }
 
+const addDays = (date, amount) => {
+  const next = new Date(date)
+  next.setDate(next.getDate() + amount)
+  return next
+}
+
+const addMonths = (date, amount) => {
+  const next = new Date(date)
+  next.setMonth(next.getMonth() + amount)
+  return next
+}
+
+const isSameDay = (a, b) => toLocalDateString(a) === toLocalDateString(b)
+
+const isDateBetween = (date, start, end) => {
+  const value = new Date(date)
+  value.setHours(0, 0, 0, 0)
+  const startDate = new Date(start)
+  startDate.setHours(0, 0, 0, 0)
+  const endDate = new Date(end)
+  endDate.setHours(23, 59, 59, 999)
+  return value >= startDate && value <= endDate
+}
+
+const formatWeekTitle = (start, end) => {
+  const sameMonth = start.getMonth() === end.getMonth() && start.getFullYear() === end.getFullYear()
+  if (sameMonth) return `${pad2(start.getDate())} - ${pad2(end.getDate())} de ${formatMonthYear(end)}`
+  return `${pad2(start.getDate())} de ${formatMonthYear(start)} - ${pad2(end.getDate())} de ${formatMonthYear(end)}`
+}
+
 const getStartOfWeek = (date) => {
   const d = new Date(date)
   d.setHours(0, 0, 0, 0)
@@ -94,6 +124,7 @@ export default function Dashboard({ session }) {
   const [newEventLocation, setNewEventLocation] = useState('')
   const [newEventCategory, setNewEventCategory] = useState('Acadêmico')
   const [agendaView, setAgendaView] = useState('mes') // 'mes' | 'semana' | 'dia'
+  const [selectedDate, setSelectedDate] = useState(() => new Date())
 
   // Filtros de Categorias da Agenda
   const [visibleCategories, setVisibleCategories] = useState({
@@ -374,23 +405,24 @@ export default function Dashboard({ session }) {
   }
 
   const today = new Date()
-  const selectedDate = today
   const selectedMonthLabel = formatMonthYear(selectedDate)
   const selectedDayLabel = formatFullDate(selectedDate)
   const todayString = toLocalDateString(today)
+  const selectedDateString = toLocalDateString(selectedDate)
 
   const daysInCalendar = getCalendarDays(selectedDate)
 
   const weekStart = getStartOfWeek(selectedDate)
   const weekEnd = new Date(weekStart)
   weekEnd.setDate(weekStart.getDate() + 6)
-  const weekTitle = `${weekStart.getDate()} - ${weekEnd.getDate()} de ${formatMonthYear(weekEnd)}`
+  const weekTitle = formatWeekTitle(weekStart, weekEnd)
   const weekDays = Array.from({ length: 7 }, (_, index) => {
     const day = new Date(weekStart)
     day.setDate(weekStart.getDate() + index)
     return {
       label: ['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB'][day.getDay()],
       day: pad2(day.getDate()),
+      month: pad2(day.getMonth() + 1),
       fullDateString: toLocalDateString(day)
     }
   })
@@ -400,6 +432,39 @@ export default function Dashboard({ session }) {
   const currentHourDecimal = today.getHours() + today.getMinutes() / 60
   const currentTimeTop = Math.max(0, Math.min((agendaHours.length - 1) * hourRowHeight, (currentHourDecimal - 8) * hourRowHeight))
   const currentTimeLabel = `${pad2(today.getHours())}:${pad2(today.getMinutes())}`
+  const showCurrentTimeLine = agendaView === 'semana'
+    ? isDateBetween(today, weekStart, weekEnd)
+    : agendaView === 'dia'
+      ? isSameDay(today, selectedDate)
+      : false
+
+  const goToToday = () => setSelectedDate(new Date())
+
+  const goToPreviousPeriod = () => {
+    setSelectedDate(prev => {
+      if (agendaView === 'mes') return addMonths(prev, -1)
+      if (agendaView === 'semana') return addDays(prev, -7)
+      return addDays(prev, -1)
+    })
+  }
+
+  const goToNextPeriod = () => {
+    setSelectedDate(prev => {
+      if (agendaView === 'mes') return addMonths(prev, 1)
+      if (agendaView === 'semana') return addDays(prev, 7)
+      return addDays(prev, 1)
+    })
+  }
+
+  const handleMonthPickerChange = (e) => {
+    if (!e.target.value) return
+    const [year, month] = e.target.value.split('-').map(Number)
+    setSelectedDate(prev => {
+      const lastDayOfTargetMonth = new Date(year, month, 0).getDate()
+      const safeDay = Math.min(prev.getDate(), lastDayOfTargetMonth)
+      return new Date(year, month - 1, safeDay)
+    })
+  }
 
   const getEventPosition = (eventTime) => {
     if (!eventTime) return { top: hourRowHeight, height: hourRowHeight - 8 }
@@ -976,21 +1041,28 @@ export default function Dashboard({ session }) {
                 {/* Barra de controles: Hoje / setas / título / Mês·Semana·Dia */}
                 <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
                   <div className="flex items-center gap-1.5">
-                    <button className="px-3 py-1.5 bg-white border border-[#dde5e0] rounded-lg text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors">
+                    <button onClick={goToToday} className="px-3 py-1.5 bg-white border border-[#dde5e0] rounded-lg text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors">
                       Hoje
                     </button>
-                    <button className="p-1.5 bg-white border border-[#dde5e0] rounded-lg text-gray-500 hover:bg-gray-50 transition-colors">
+                    <button onClick={goToPreviousPeriod} className="p-1.5 bg-white border border-[#dde5e0] rounded-lg text-gray-500 hover:bg-gray-50 transition-colors">
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
                     </button>
-                    <button className="p-1.5 bg-white border border-[#dde5e0] rounded-lg text-gray-500 hover:bg-gray-50 transition-colors">
+                    <button onClick={goToNextPeriod} className="p-1.5 bg-white border border-[#dde5e0] rounded-lg text-gray-500 hover:bg-gray-50 transition-colors">
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg>
                     </button>
                   </div>
 
-                  <div className="flex items-center gap-1.5 text-sm font-bold text-[#1a2e26]">
+                  <label className="relative flex items-center gap-1.5 text-sm font-bold text-[#1a2e26] cursor-pointer hover:text-[#00674F] transition-colors px-2 py-1 rounded-lg hover:bg-[#f3f6f4]">
                     {agendaView === 'semana' ? weekTitle : agendaView === 'dia' ? selectedDayLabel : selectedMonthLabel}
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
-                  </div>
+                    <input
+                      type="month"
+                      value={`${selectedDate.getFullYear()}-${pad2(selectedDate.getMonth() + 1)}`}
+                      onChange={handleMonthPickerChange}
+                      className="absolute inset-0 opacity-0 cursor-pointer"
+                      aria-label="Escolher mês e ano"
+                    />
+                  </label>
 
                   <div className="flex bg-[#f3f6f4] rounded-lg p-0.5 border border-[#e4e9e6]">
                     <button onClick={() => setAgendaView('mes')} className={`px-3 py-1 font-bold rounded-md text-xs transition-all ${agendaView === 'mes' ? 'bg-white text-[#00674F] shadow-sm' : 'text-gray-400 hover:text-[#00674F]'}`}>Mês</button>
@@ -1006,7 +1078,7 @@ export default function Dashboard({ session }) {
                       <div className="h-12" />
                       {weekDays.map(day => (
                         <div key={day.fullDateString} className="h-12 flex items-center justify-center text-[10px] font-bold text-[#6f8179] tracking-wide border-l border-[#edf1ef]">
-                          {day.label} {day.day}/05
+                          {day.label} {day.day}/{day.month}
                         </div>
                       ))}
                     </div>
@@ -1051,10 +1123,12 @@ export default function Dashboard({ session }) {
                       })}
 
                       {/* Linha de horário atual */}
-                      <div className="absolute left-[54px] right-0 h-px bg-red-400 z-20" style={{ top: `${currentTimeTop}px` }}>
-                        <span className="absolute -left-9 -top-2 text-[9px] font-bold text-red-500 bg-white pr-1">{currentTimeLabel}</span>
-                        <span className="absolute -left-1.5 -top-1.5 w-3 h-3 rounded-full bg-red-400 border-2 border-white" />
-                      </div>
+                      {showCurrentTimeLine && (
+                        <div className="absolute left-[54px] right-0 h-px bg-red-400 z-20" style={{ top: `${currentTimeTop}px` }}>
+                          <span className="absolute -left-9 -top-2 text-[9px] font-bold text-red-500 bg-white pr-1">{currentTimeLabel}</span>
+                          <span className="absolute -left-1.5 -top-1.5 w-3 h-3 rounded-full bg-red-400 border-2 border-white" />
+                        </div>
+                      )}
                     </div>
                   </div>
                 ) : agendaView === 'dia' ? (
@@ -1073,7 +1147,7 @@ export default function Dashboard({ session }) {
                       {agendaHours.map(hour => (
                         <div key={hour} className="absolute left-[54px] right-0 border-t border-[#edf1ef]" style={{ top: `${(hour - 8) * hourRowHeight}px` }} />
                       ))}
-                      {events.filter(e => e.event_date === todayString && visibleCategories[e.category]).map(ev => {
+                      {events.filter(e => e.event_date === selectedDateString && visibleCategories[e.category]).map(ev => {
                         const style = getCategoryStyle(ev.category)
                         const pos = getEventPosition(ev.event_time)
                         return (
@@ -1083,10 +1157,12 @@ export default function Dashboard({ session }) {
                           </div>
                         )
                       })}
-                      <div className="absolute left-[54px] right-0 h-px bg-red-400 z-20" style={{ top: `${currentTimeTop}px` }}>
-                        <span className="absolute -left-9 -top-2 text-[9px] font-bold text-red-500 bg-white pr-1">{currentTimeLabel}</span>
-                        <span className="absolute -left-1.5 -top-1.5 w-3 h-3 rounded-full bg-red-400 border-2 border-white" />
-                      </div>
+                      {showCurrentTimeLine && (
+                        <div className="absolute left-[54px] right-0 h-px bg-red-400 z-20" style={{ top: `${currentTimeTop}px` }}>
+                          <span className="absolute -left-9 -top-2 text-[9px] font-bold text-red-500 bg-white pr-1">{currentTimeLabel}</span>
+                          <span className="absolute -left-1.5 -top-1.5 w-3 h-3 rounded-full bg-red-400 border-2 border-white" />
+                        </div>
+                      )}
                     </div>
                   </div>
                 ) : (
