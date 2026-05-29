@@ -474,34 +474,61 @@ export default function Dashboard({ session, isDark, toggleDark }) {
 
   // ==================== LÓGICA DO FEED ====================
   const fetchPosts = async () => {
-    const { data: postsData, error: postsError } = await supabase
+    // Busca robusta: se a coluna author_name não existir em algum ambiente antigo,
+    // o feed continua funcionando usando o username do profile como fallback.
+    let { data: postsData, error: postsError } = await supabase
       .from('posts')
       .select('id, content, created_at, user_id, author_name')
       .order('created_at', { ascending: false })
 
-    if (postsError) return
+    if (postsError) {
+      const fallback = await supabase
+        .from('posts')
+        .select('id, content, created_at, user_id')
+        .order('created_at', { ascending: false })
+
+      postsData = fallback.data || []
+      postsError = fallback.error
+    }
+
+    if (postsError) {
+      console.error('Erro ao buscar posts:', postsError.message)
+      setPosts([])
+      return
+    }
 
     const postIds = (postsData || []).map(post => post.id)
 
-    const { data: profilesData } = await supabase.from('profiles').select('id, username')
+    const { data: profilesData, error: profilesError } = await supabase
+      .from('profiles')
+      .select('id, username, full_name')
+
+    if (profilesError) console.warn('Perfis não carregados:', profilesError.message)
+
     const profilesMap = {}
-    profilesData?.forEach(p => { profilesMap[p.id] = p.username })
+    profilesData?.forEach(p => {
+      profilesMap[p.id] = p.username || p.full_name
+    })
 
     let likesData = []
     let commentsData = []
 
     if (postIds.length > 0) {
-      const { data: likes } = await supabase
+      const { data: likes, error: likesError } = await supabase
         .from('likes')
         .select('id, post_id, user_id')
         .in('post_id', postIds)
-      likesData = likes || []
 
-      const { data: comments } = await supabase
+      if (!likesError) likesData = likes || []
+      else console.warn('Likes não carregados:', likesError.message)
+
+      const { data: comments, error: commentsError } = await supabase
         .from('comments')
         .select('id, post_id')
         .in('post_id', postIds)
-      commentsData = comments || []
+
+      if (!commentsError) commentsData = comments || []
+      else console.warn('Comentários não carregados:', commentsError.message)
     }
 
     const currentUserId = session?.user?.id
@@ -528,13 +555,28 @@ export default function Dashboard({ session, isDark, toggleDark }) {
 
     const authorName = headerDisplayName || session.user.email?.split('@')[0] || 'Estudante UFA'
 
-    const { error } = await supabase.from('posts').insert([{
+    let { error } = await supabase.from('posts').insert([{
       user_id: session.user.id,
       author_name: authorName,
       content: newPostContent.trim()
     }])
 
-    if (!error) { setNewPostContent(''); fetchPosts() }
+    // Compatibilidade com projetos que ainda não têm a coluna author_name.
+    if (error) {
+      const fallback = await supabase.from('posts').insert([{
+        user_id: session.user.id,
+        content: newPostContent.trim()
+      }])
+      error = fallback.error
+    }
+
+    if (!error) {
+      setNewPostContent('')
+      fetchPosts()
+    } else {
+      console.error('Erro ao criar post:', error.message)
+      alert('Não foi possível publicar no feed. Confira as policies da tabela posts no Supabase.')
+    }
   }
 
   const handleToggleLike = async (post) => {
@@ -647,11 +689,17 @@ export default function Dashboard({ session, isDark, toggleDark }) {
   const weekGoalTotal = weeklyGoal?.target_tasks || 7
   const weekGoalDone = Math.min(weeklyGoal?.completed_tasks || 0, weekGoalTotal)
   const weekGoalPercent = weekGoalTotal > 0 ? Math.round((weekGoalDone / weekGoalTotal) * 100) : 0
-  const nextDeadlineTask = tasks
-    .filter(task => !task.is_completed && task.due_date)
-    .sort((a, b) => new Date(a.due_date) - new Date(b.due_date))[0]
-  const daysUntilNextDeadline = nextDeadlineTask?.due_date
-    ? Math.max(0, Math.ceil((new Date(nextDeadlineTask.due_date + 'T00:00:00') - new Date()) / 86400000))
+  // Próximo prazo agora vem da Agenda/Calendário, não das tarefas.
+  const nextDeadlineEvent = events
+    .filter(event => event.event_date && event.event_date >= toLocalDateString(new Date()))
+    .sort((a, b) => {
+      const aDate = new Date(`${a.event_date}T${a.event_time || '23:59'}`)
+      const bDate = new Date(`${b.event_date}T${b.event_time || '23:59'}`)
+      return aDate - bDate
+    })[0]
+
+  const daysUntilNextDeadline = nextDeadlineEvent?.event_date
+    ? Math.max(0, Math.ceil((new Date(`${nextDeadlineEvent.event_date}T00:00:00`) - new Date()) / 86400000))
     : null
 
   // Estilos das tags internas dos dias do calendário
@@ -930,11 +978,11 @@ export default function Dashboard({ session, isDark, toggleDark }) {
                     </div>
                     <div className="min-w-0">
                       <div className="text-[13px] font-bold text-[#b8942a] mb-2">Próximo prazo</div>
-                      <h3 className="text-lg font-bold text-[#1a2e26] dark:text-gray-100 truncate">{nextDeadlineTask?.title || 'Trabalho de Algoritmos'}</h3>
+                      <h3 className="text-lg font-bold text-[#1a2e26] dark:text-gray-100 truncate">{nextDeadlineEvent?.title || 'Nenhum evento próximo'}</h3>
                       <p className="text-sm text-[#8a6b20] dark:text-amber-200 mt-1">
-                        {nextDeadlineTask?.due_date
-                          ? daysUntilNextDeadline === 0 ? 'Entrega hoje' : `Entrega em ${daysUntilNextDeadline} dias`
-                          : 'Entrega em 3 dias'}
+                        {nextDeadlineEvent?.event_date
+                          ? daysUntilNextDeadline === 0 ? 'Acontece hoje' : `Acontece em ${daysUntilNextDeadline} dias`
+                          : 'Crie um evento na agenda'}
                       </p>
                     </div>
                   </div>
