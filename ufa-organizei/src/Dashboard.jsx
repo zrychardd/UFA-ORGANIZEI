@@ -479,7 +479,7 @@ export default function Dashboard({ session, isDark, toggleDark }) {
     <div className="ufa-dashboard flex flex-col h-screen bg-[#F5F7F6] dark:bg-gray-950 min-h-[640px] font-sans antialiased overflow-hidden transition-colors duration-300">
 
       {/* ==================== HEADER OFICIAL ==================== */}
-      <header className="bg-gradient-to-br from-[#003d2e] via-[#00674F] to-[#005040] px-7 h-24 flex items-center justify-between relative overflow-hidden shrink-0 shadow-md">
+      <header className="bg-gradient-to-br from-[#003d2e] via-[#00674F] to-[#005040] px-7 h-24 flex items-center justify-between relative overflow-visible shrink-0 shadow-md z-[9999]">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_rgba(255,255,255,0.04)_1px,_transparent_1px)] bg-[size:28px_28px] pointer-events-none" />
         <div className="absolute -right-10 -top-16 w-72 h-56 rounded-full border-2 border-[rgba(211,175,55,0.25)] pointer-events-none" />
         <div className="absolute right-14 -top-24 w-80 h-72 rounded-full border border-[rgba(211,175,55,0.12)] pointer-events-none" />
@@ -503,8 +503,8 @@ export default function Dashboard({ session, isDark, toggleDark }) {
           </div>
         </div>
 
-        <div className="flex items-center gap-3 relative z-10">
-          <div className="relative">
+        <div className="flex items-center gap-3 relative z-[10000]">
+          <div className="relative z-[10000]">
             <button
               onClick={() => setShowUserMenu(prev => !prev)}
               className="flex items-center gap-2.5 bg-white/10 border border-white/15 rounded-full py-1.5 pl-1.5 pr-3.5 backdrop-blur-md cursor-pointer hover:bg-white/15 transition-all duration-200"
@@ -520,7 +520,7 @@ export default function Dashboard({ session, isDark, toggleDark }) {
             </button>
 
             {showUserMenu && (
-              <div className="absolute right-0 top-[52px] z-50 w-72 bg-white dark:bg-gray-900 border border-[#e4e9e6] dark:border-gray-800 rounded-2xl shadow-[0_18px_50px_rgba(0,0,0,0.18)] overflow-hidden animate-fade-in">
+              <div className="absolute right-0 top-full mt-3 z-[10000] w-72 bg-white dark:bg-gray-900 border border-[#e4e9e6] dark:border-gray-800 rounded-2xl shadow-[0_18px_50px_rgba(0,0,0,0.18)] overflow-hidden animate-fade-in">
                 <div className="p-4 flex items-center gap-3 border-b border-[#edf1ee] dark:border-gray-800">
                   <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#D3AF37] to-[#a88620] flex items-center justify-center text-sm font-bold text-white shadow-sm">
                     {avatarInitials}
