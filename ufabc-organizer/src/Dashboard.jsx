@@ -220,7 +220,8 @@ export default function Dashboard({ session }) {
           title: newTaskTitle,
           due_date: newTaskDate || null,
           is_completed: false,
-          difficulty: newTaskDifficulty
+          difficulty: newTaskDifficulty,
+          category: newTaskLabel
         }])
         .select('id')
         .single()
@@ -250,6 +251,7 @@ export default function Dashboard({ session }) {
       setNewTaskDescription('')
       setNewTaskTime('')
       setNewTaskDifficulty('Média')
+      setNewTaskLabel('Acadêmico')
       setTaskAttachments([])
       setShowTaskModal(false)
       fetchTasks()
@@ -698,7 +700,7 @@ export default function Dashboard({ session }) {
                           const matchFilter = taskFilter === 'todas' ? true : taskFilter === 'pendentes' ? !t.is_completed : t.is_completed
                           const matchSearch = taskSearch === '' || t.title.toLowerCase().includes(taskSearch.toLowerCase())
                           const matchDiff = filterDifficulty === '' || (t.difficulty || 'Média') === filterDifficulty
-                          const matchLabel = filterLabel === '' || (t.label || 'Acadêmico') === filterLabel
+                          const matchLabel = filterLabel === '' || (t.category || 'Acadêmico') === filterLabel
                           return matchFilter && matchSearch && matchDiff && matchLabel
                         }).length} itens</span>
                       </div>
@@ -709,7 +711,7 @@ export default function Dashboard({ session }) {
                       const matchFilter = taskFilter === 'todas' ? true : taskFilter === 'pendentes' ? !t.is_completed : t.is_completed
                       const matchSearch = taskSearch === '' || t.title.toLowerCase().includes(taskSearch.toLowerCase())
                       const matchDiff = filterDifficulty === '' || (t.difficulty || 'Média') === filterDifficulty
-                      const matchLabel = filterLabel === '' || (t.label || 'Acadêmico') === filterLabel
+                      const matchLabel = filterLabel === '' || (t.category || 'Acadêmico') === filterLabel
                       return matchFilter && matchSearch && matchDiff && matchLabel
                     }).length === 0 ? (
                       <p className="text-center text-gray-400 text-xs py-8">{tasks.length === 0 ? 'Nenhuma tarefa criada.' : 'Nenhuma tarefa encontrada.'}</p>
@@ -718,7 +720,7 @@ export default function Dashboard({ session }) {
                         const matchFilter = taskFilter === 'todas' ? true : taskFilter === 'pendentes' ? !t.is_completed : t.is_completed
                         const matchSearch = taskSearch === '' || t.title.toLowerCase().includes(taskSearch.toLowerCase())
                         const matchDiff = filterDifficulty === '' || (t.difficulty || 'Média') === filterDifficulty
-                        const matchLabel = filterLabel === '' || (t.label || 'Acadêmico') === filterLabel
+                        const matchLabel = filterLabel === '' || (t.category || 'Acadêmico') === filterLabel
                         return matchFilter && matchSearch && matchDiff && matchLabel
                       }).map((task) => {
                         const isExpanded = expandedTaskId === task.id
@@ -749,7 +751,7 @@ export default function Dashboard({ session }) {
                                 <div className="min-w-0 flex-1">
                                   <h4 className={`text-[13px] font-bold truncate ${task.is_completed ? 'text-gray-400 line-through' : 'text-[#1a2e26]'}`}>{task.title}</h4>
                                   <div className="flex items-center gap-2 mt-1">
-                                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md border ${task.is_completed ? 'bg-gray-50 text-gray-400 border-gray-100' : 'bg-[#e8f5ef] text-[#00674F] border-[#a3d9c9]'}`}>{task.label || 'Acadêmico'}</span>
+                                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md border ${task.is_completed ? 'bg-gray-50 text-gray-400 border-gray-100' : 'bg-[#e8f5ef] text-[#00674F] border-[#a3d9c9]'}`}>{task.category || 'Acadêmico'}</span>
                                   </div>
                                 </div>
                               </div>
@@ -813,7 +815,7 @@ export default function Dashboard({ session }) {
                                     </div>
                                     <div className="bg-white border border-[#e8ede9] rounded-xl p-3">
                                       <div className="flex items-center gap-1.5 text-[10px] text-gray-400 mb-1"><Award size={11} /> Etiqueta</div>
-                                      <span className="text-[11px] font-bold px-2 py-0.5 rounded-md border bg-[#e8f5ef] text-[#00674F] border-[#a3d9c9]">{task.label || 'Acadêmico'}</span>
+                                      <span className="text-[11px] font-bold px-2 py-0.5 rounded-md border bg-[#e8f5ef] text-[#00674F] border-[#a3d9c9]">{task.category || 'Acadêmico'}</span>
                                     </div>
                                   </div>
                                 </div>
