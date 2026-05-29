@@ -27,6 +27,21 @@ const formatFullDate = (date) => {
     .replace(' de ', ' de ')
 }
 
+const formatRelativeTime = (dateString) => {
+  if (!dateString) return 'agora'
+  const now = new Date()
+  const date = new Date(dateString)
+  const diffMs = now - date
+  const diffMinutes = Math.max(0, Math.floor(diffMs / 60000))
+  if (diffMinutes < 1) return 'agora'
+  if (diffMinutes < 60) return `há ${diffMinutes} min`
+  const diffHours = Math.floor(diffMinutes / 60)
+  if (diffHours < 24) return `há ${diffHours} h`
+  const diffDays = Math.floor(diffHours / 24)
+  if (diffDays === 1) return 'há 1 dia'
+  return `há ${diffDays} dias`
+}
+
 const addDays = (date, amount) => {
   const next = new Date(date)
   next.setDate(next.getDate() + amount)
@@ -394,6 +409,17 @@ export default function Dashboard({ session, isDark, toggleDark }) {
 
   const pendingTasksCount = tasks.filter(task => !task.is_completed).length
 
+  const completedTasksCount = tasks.length - pendingTasksCount
+  const weekGoalTotal = 7
+  const weekGoalDone = Math.min(completedTasksCount || 4, weekGoalTotal)
+  const weekGoalPercent = Math.round((weekGoalDone / weekGoalTotal) * 100)
+  const nextDeadlineTask = tasks
+    .filter(task => !task.is_completed && task.due_date)
+    .sort((a, b) => new Date(a.due_date) - new Date(b.due_date))[0]
+  const daysUntilNextDeadline = nextDeadlineTask?.due_date
+    ? Math.max(0, Math.ceil((new Date(nextDeadlineTask.due_date + 'T00:00:00') - new Date()) / 86400000))
+    : null
+
   // Estilos das tags internas dos dias do calendário
   const getCategoryStyle = (cat) => {
     switch (cat) {
@@ -651,6 +677,49 @@ export default function Dashboard({ session, isDark, toggleDark }) {
                   </div>
                 </div>
 
+                {/* Faixa de insights acadêmicos */}
+                <div className="grid grid-cols-1 md:grid-cols-3 overflow-hidden rounded-2xl border border-[#00674F]/40 dark:border-[#00674F]/50 bg-white dark:bg-gray-900 shadow-[0_2px_12px_rgba(0,0,0,0.05)]">
+                  <div className="p-5 bg-gradient-to-br from-[#e8f5ef] to-white dark:from-[#062f26] dark:to-gray-900 border-b md:border-b-0 md:border-r border-[#00674F]/20 dark:border-[#00674F]/30 flex items-center justify-between gap-4">
+                    <div>
+                      <div className="flex items-center gap-2 text-[13px] font-bold text-[#00674F] dark:text-emerald-300 mb-2">
+                        <span>🔥</span> Streak de estudos
+                      </div>
+                      <div className="text-3xl font-bold text-[#1a2e26] dark:text-gray-100 leading-none">7 <span className="text-lg font-semibold text-[#5a6b63] dark:text-gray-300">dias</span></div>
+                      <p className="text-sm text-[#5a6b63] dark:text-gray-400 mt-1">consecutivos</p>
+                    </div>
+                    <div className="w-14 h-14 rounded-full bg-[#fdf5e0] dark:bg-[#3a3012] flex items-center justify-center text-3xl shadow-inner">🔥</div>
+                  </div>
+
+                  <div className="p-5 bg-gradient-to-br from-[#fff8e8] to-white dark:from-[#3a3012] dark:to-gray-900 border-b md:border-b-0 md:border-r border-[#D3AF37]/30 flex items-center gap-4">
+                    <div className="w-11 h-11 rounded-2xl bg-[#fdf5e0] dark:bg-[#4b3a11] flex items-center justify-center shrink-0">
+                      <Calendar size={21} className="text-[#D3AF37]" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-[13px] font-bold text-[#b8942a] mb-2">Próximo prazo</div>
+                      <h3 className="text-lg font-bold text-[#1a2e26] dark:text-gray-100 truncate">{nextDeadlineTask?.title || 'Trabalho de Algoritmos'}</h3>
+                      <p className="text-sm text-[#8a6b20] dark:text-amber-200 mt-1">
+                        {nextDeadlineTask?.due_date
+                          ? daysUntilNextDeadline === 0 ? 'Entrega hoje' : `Entrega em ${daysUntilNextDeadline} dias`
+                          : 'Entrega em 3 dias'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="p-5 bg-gradient-to-br from-[#e8f5ef] to-white dark:from-[#062f26] dark:to-gray-900 flex items-center justify-between gap-4">
+                    <div>
+                      <div className="flex items-center gap-2 text-[13px] font-bold text-[#00674F] dark:text-emerald-300 mb-2">
+                        <span>🎯</span> Meta da semana
+                      </div>
+                      <div className="text-3xl font-bold text-[#1a2e26] dark:text-gray-100 leading-none">{weekGoalDone} <span className="text-lg font-semibold text-[#5a6b63] dark:text-gray-300">de {weekGoalTotal}</span></div>
+                      <p className="text-sm text-[#5a6b63] dark:text-gray-400 mt-1">tarefas concluídas</p>
+                    </div>
+                    <div className="relative w-16 h-16 rounded-full bg-[#e8ede9] dark:bg-gray-800 flex items-center justify-center shrink-0">
+                      <div className="absolute inset-0 rounded-full" style={{ background: `conic-gradient(#00674F ${weekGoalPercent}%, #e8ede9 0)` }} />
+                      <div className="relative w-12 h-12 rounded-full bg-white dark:bg-gray-900 flex items-center justify-center text-[12px] font-bold text-[#00674F]">{weekGoalPercent}%</div>
+                    </div>
+                  </div>
+                </div>
+
                 {/* Sessão do Meio (Próximos Eventos & Tarefas em Destaque Dinâmicos) */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
@@ -755,38 +824,24 @@ export default function Dashboard({ session, isDark, toggleDark }) {
                   </div>
 
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="bg-[#fafcfb] dark:bg-gray-800 border border-[#e8ede9] dark:border-gray-800 p-4 rounded-2xl flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-full border-4 border-[#e8f5ef] flex items-center justify-center text-[11px] font-bold text-gray-400 shrink-0">0%</div>
-                      <div className="flex flex-col">
-                        <span className="text-[13px] font-bold text-[#1a2e26] dark:text-gray-100">Estudar</span>
-                        <span className="text-[10px] text-gray-400 font-medium">0%</span>
-                        <span className="text-[10px] text-gray-400">0/0 dias</span>
+                    {[
+                      { name: 'Estudar', percent: 40, detail: '4h de 10h', color: '#D3AF37' },
+                      { name: 'Exercícios', percent: 60, detail: '3h de 5h', color: '#00674F' },
+                      { name: 'Leitura', percent: 25, detail: '1h de 4h', color: '#D3AF37' },
+                      { name: 'Projetos', percent: 75, detail: '3h de 4h', color: '#00674F' },
+                    ].map((habit) => (
+                      <div key={habit.name} className="bg-[#fafcfb] dark:bg-gray-800 border border-[#e8ede9] dark:border-gray-800 p-4 rounded-2xl flex items-center gap-4 hover:shadow-sm transition-shadow">
+                        <div className="relative w-12 h-12 rounded-full flex items-center justify-center shrink-0">
+                          <div className="absolute inset-0 rounded-full" style={{ background: `conic-gradient(${habit.color} ${habit.percent}%, #e8f5ef 0)` }} />
+                          <div className="relative w-9 h-9 rounded-full bg-white dark:bg-gray-900 flex items-center justify-center text-[10px] font-bold text-[#5a6b63] dark:text-gray-300">{habit.percent}%</div>
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-[13px] font-bold text-[#1a2e26] dark:text-gray-100">{habit.name}</span>
+                          <span className="text-[10px] text-gray-400 font-medium">Diário</span>
+                          <span className="text-[10px] text-gray-400">{habit.detail}</span>
+                        </div>
                       </div>
-                    </div>
-                    <div className="bg-[#fafcfb] dark:bg-gray-800 border border-[#e8ede9] dark:border-gray-800 p-4 rounded-2xl flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-full border-4 border-[#e8f5ef] flex items-center justify-center text-[11px] font-bold text-gray-400 shrink-0">0%</div>
-                      <div className="flex flex-col">
-                        <span className="text-[13px] font-bold text-[#1a2e26] dark:text-gray-100">Exercícios</span>
-                        <span className="text-[10px] text-gray-400 font-medium">0%</span>
-                        <span className="text-[10px] text-gray-400">0/0 dias</span>
-                      </div>
-                    </div>
-                    <div className="bg-[#fafcfb] dark:bg-gray-800 border border-[#e8ede9] dark:border-gray-800 p-4 rounded-2xl flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-full border-4 border-[#e8f5ef] flex items-center justify-center text-[11px] font-bold text-gray-400 shrink-0">0%</div>
-                      <div className="flex flex-col">
-                        <span className="text-[13px] font-bold text-[#1a2e26] dark:text-gray-100">Leitura</span>
-                        <span className="text-[10px] text-gray-400 font-medium">0%</span>
-                        <span className="text-[10px] text-gray-400">0/0 dias</span>
-                      </div>
-                    </div>
-                    <div className="bg-[#fafcfb] dark:bg-gray-800 border border-[#e8ede9] dark:border-gray-800 p-4 rounded-2xl flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-full border-4 border-[#e8f5ef] flex items-center justify-center text-[11px] font-bold text-gray-400 shrink-0">0%</div>
-                      <div className="flex flex-col">
-                        <span className="text-[13px] font-bold text-[#1a2e26] dark:text-gray-100">Projetos</span>
-                        <span className="text-[10px] text-gray-400 font-medium">0%</span>
-                        <span className="text-[10px] text-gray-400">0/0 dias</span>
-                      </div>
-                    </div>
+                    ))}
                   </div>
                 </div>
 
@@ -1494,14 +1549,33 @@ export default function Dashboard({ session, isDark, toggleDark }) {
                   <button type="submit" className="w-9 h-9 rounded-xl bg-[#D3AF37] text-white flex items-center justify-center shadow-sm"><Send size={14} /></button>
                 </form>
                 <div className="flex-1 overflow-y-auto space-y-2 pr-1 scrollbar-thin">
-                  {posts.map((post) => (
-                    <div key={post.id} className="p-3 rounded-xl bg-[#fafcfb] dark:bg-gray-800 border border-[#e8ede9] dark:border-gray-800 flex gap-2.5">
-                      <div className="flex-1 min-w-0">
-                        <div className="text-xs font-medium text-[#1a2e26] dark:text-gray-100">{post.profiles?.username || 'Estudante UFA'}</div>
-                        <p className="text-xs text-[#5a6b63] dark:text-gray-300 mt-1 whitespace-pre-wrap break-words leading-relaxed">{post.content}</p>
+                  {posts.map((post, index) => {
+                    const authorName = post.profiles?.username || 'Estudante UFA'
+                    const initials = authorName.slice(0, 2).toUpperCase()
+                    return (
+                      <div key={post.id} className="p-4 rounded-2xl bg-white dark:bg-gray-800 border border-[#e8ede9] dark:border-gray-700 shadow-[0_1px_6px_rgba(0,0,0,0.035)] hover:shadow-md transition-all">
+                        <div className="flex items-start gap-3">
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0 ${index % 2 === 0 ? 'bg-gradient-to-br from-[#D3AF37] to-[#b8942a]' : 'bg-gradient-to-br from-[#00674F] to-[#004c3b]'}`}>
+                            {initials}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-start justify-between gap-2">
+                              <div>
+                                <div className="text-[13px] font-bold text-[#1a2e26] dark:text-gray-100 leading-none">{authorName}</div>
+                                <div className="text-[10px] text-[#8a9e94] dark:text-gray-400 mt-1">{formatRelativeTime(post.created_at)}</div>
+                              </div>
+                              <button className="text-gray-300 hover:text-[#00674F] px-1 rounded-md">•••</button>
+                            </div>
+                            <p className="text-[12px] text-[#5a6b63] dark:text-gray-300 mt-3 whitespace-pre-wrap break-words leading-relaxed">{post.content}</p>
+                            <div className="flex items-center gap-5 pt-3 mt-3 border-t border-[#eef2ef] dark:border-gray-700 text-[11px] text-gray-400">
+                              <button type="button" className="flex items-center gap-1.5 hover:text-[#00674F] transition-colors">♡ <span>{index + 1}</span></button>
+                              <button type="button" className="flex items-center gap-1.5 hover:text-[#00674F] transition-colors">💬 <span>{index % 3}</span></button>
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               </div>
             )}
