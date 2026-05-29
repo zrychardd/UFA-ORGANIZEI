@@ -79,6 +79,18 @@ const getStartOfWeek = (date) => {
   return d
 }
 
+const getCurrentWeekRange = () => {
+  const start = getStartOfWeek(new Date())
+  const end = addDays(start, 6)
+  return { start: toLocalDateString(start), end: toLocalDateString(end) }
+}
+
+const isDateInCurrentWeek = (dateString) => {
+  if (!dateString) return false
+  const { start, end } = getCurrentWeekRange()
+  return dateString >= start && dateString <= end
+}
+
 const getCalendarDays = (baseDate) => {
   const year = baseDate.getFullYear()
   const month = baseDate.getMonth()
@@ -130,6 +142,13 @@ export default function Dashboard({ session, isDark, toggleDark }) {
   // Estados do Feed Coletivo
   const [posts, setPosts] = useState([])
   const [newPostContent, setNewPostContent] = useState('')
+  const [openCommentsPostId, setOpenCommentsPostId] = useState(null)
+  const [postCommentsMap, setPostCommentsMap] = useState({})
+  const [commentInputs, setCommentInputs] = useState({})
+
+  // Estados dos insights do Dashboard
+  const [studyStreak, setStudyStreak] = useState({ current_streak: 0, longest_streak: 0 })
+  const [weeklyGoal, setWeeklyGoal] = useState({ target_tasks: 7, completed_tasks: 0 })
 
   // Estados da Agenda
   const [events, setEvents] = useState([])
@@ -170,10 +189,13 @@ export default function Dashboard({ session, isDark, toggleDark }) {
     fetchTasks()
     fetchPosts()
     fetchEvents()
+    fetchDashboardInsights()
 
     const channel = supabase
       .channel('schema-db-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'posts' }, () => { fetchPosts() })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'likes' }, () => { fetchPosts() })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'comments' }, () => { fetchPosts(); if (openCommentsPostId) fetchComments(openCommentsPostId) })
       .subscribe()
 
     return () => supabase.removeChannel(channel)
@@ -291,6 +313,43 @@ export default function Dashboard({ session, isDark, toggleDark }) {
   }
 
   // ==================== LÓGICA DAS TAREFAS ====================
+  const calculateWeeklyCompleted = (taskList) => {
+    const completed = taskList.filter(task => task.is_completed)
+    const completedWithDateThisWeek = completed.filter(task => isDateInCurrentWeek(task.due_date))
+    return completedWithDateThisWeek.length > 0 ? completedWithDateThisWeek.length : completed.length
+  }
+
+  const syncWeeklyGoalProgress = async (taskList = tasks) => {
+    const user = session?.user
+    if (!user) return
+
+    const { start, end } = getCurrentWeekRange()
+    const completed = calculateWeeklyCompleted(taskList)
+
+    const { data: existingGoal } = await supabase
+      .from('weekly_goals')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('week_start', start)
+      .maybeSingle()
+
+    const target = existingGoal?.target_tasks || weeklyGoal?.target_tasks || 7
+
+    const { data, error } = await supabase
+      .from('weekly_goals')
+      .upsert({
+        user_id: user.id,
+        week_start: start,
+        week_end: end,
+        target_tasks: target,
+        completed_tasks: completed
+      }, { onConflict: 'user_id,week_start' })
+      .select('*')
+      .single()
+
+    if (!error && data) setWeeklyGoal(data)
+  }
+
   const fetchTasks = async () => {
     const { data, error } = await supabase
       .from('tasks')
@@ -298,7 +357,11 @@ export default function Dashboard({ session, isDark, toggleDark }) {
       .order('created_at', { ascending: false })
 
     if (error) console.error('Erro ao buscar tarefas:', error.message)
-    else setTasks(data || [])
+    else {
+      const list = data || []
+      setTasks(list)
+      syncWeeklyGoalProgress(list)
+    }
   }
 
   const handleAddTask = async (e) => {
@@ -355,10 +418,52 @@ export default function Dashboard({ session, isDark, toggleDark }) {
     setLoading(false)
   }
 
+  const updateStudyStreak = async () => {
+    const user = session?.user
+    if (!user) return
+
+    const todayString = toLocalDateString(new Date())
+    const yesterdayString = toLocalDateString(addDays(new Date(), -1))
+
+    const { data: current } = await supabase
+      .from('study_streaks')
+      .select('*')
+      .eq('user_id', user.id)
+      .maybeSingle()
+
+    if (current?.last_study_date === todayString) {
+      setStudyStreak(current)
+      return
+    }
+
+    const nextCurrentStreak = current?.last_study_date === yesterdayString
+      ? (current.current_streak || 0) + 1
+      : 1
+
+    const nextLongestStreak = Math.max(nextCurrentStreak, current?.longest_streak || 0)
+
+    const { data, error } = await supabase
+      .from('study_streaks')
+      .upsert({
+        user_id: user.id,
+        current_streak: nextCurrentStreak,
+        longest_streak: nextLongestStreak,
+        last_study_date: todayString,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'user_id' })
+      .select('*')
+      .single()
+
+    if (!error && data) setStudyStreak(data)
+  }
+
   const toggleTaskComplete = async (id, currentStatus) => {
     const { error } = await supabase.from('tasks').update({ is_completed: !currentStatus }).eq('id', id)
     if (error) console.error(error.message)
-    else fetchTasks()
+    else {
+      if (!currentStatus) await updateStudyStreak()
+      fetchTasks()
+    }
   }
 
   const deleteTask = async (id) => {
@@ -369,24 +474,153 @@ export default function Dashboard({ session, isDark, toggleDark }) {
 
   // ==================== LÓGICA DO FEED ====================
   const fetchPosts = async () => {
-    const { data: postsData, error: postsError } = await supabase.from('posts').select('id, content, created_at, user_id').order('created_at', { ascending: false })
+    const { data: postsData, error: postsError } = await supabase
+      .from('posts')
+      .select('id, content, created_at, user_id, author_name')
+      .order('created_at', { ascending: false })
+
     if (postsError) return
+
+    const postIds = (postsData || []).map(post => post.id)
 
     const { data: profilesData } = await supabase.from('profiles').select('id, username')
     const profilesMap = {}
     profilesData?.forEach(p => { profilesMap[p.id] = p.username })
 
-    setPosts(postsData.map(post => ({
-      ...post,
-      profiles: profilesMap[post.user_id] ? { username: profilesMap[post.user_id] } : null
-    })) || [])
+    let likesData = []
+    let commentsData = []
+
+    if (postIds.length > 0) {
+      const { data: likes } = await supabase
+        .from('likes')
+        .select('id, post_id, user_id')
+        .in('post_id', postIds)
+      likesData = likes || []
+
+      const { data: comments } = await supabase
+        .from('comments')
+        .select('id, post_id')
+        .in('post_id', postIds)
+      commentsData = comments || []
+    }
+
+    const currentUserId = session?.user?.id
+
+    setPosts((postsData || []).map(post => {
+      const authorFromProfile = profilesMap[post.user_id]
+      const postLikes = likesData.filter(like => like.post_id === post.id)
+      const postComments = commentsData.filter(comment => comment.post_id === post.id)
+
+      return {
+        ...post,
+        profiles: authorFromProfile ? { username: authorFromProfile } : null,
+        author_name: post.author_name || authorFromProfile || 'Estudante UFA',
+        likes_count: postLikes.length,
+        comments_count: postComments.length,
+        liked_by_me: postLikes.some(like => like.user_id === currentUserId)
+      }
+    }))
   }
 
   const handleCreatePost = async (e) => {
     e.preventDefault()
     if (!newPostContent.trim()) return
-    const { error } = await supabase.from('posts').insert([{ user_id: session.user.id, content: newPostContent }])
+
+    const authorName = headerDisplayName || session.user.email?.split('@')[0] || 'Estudante UFA'
+
+    const { error } = await supabase.from('posts').insert([{
+      user_id: session.user.id,
+      author_name: authorName,
+      content: newPostContent.trim()
+    }])
+
     if (!error) { setNewPostContent(''); fetchPosts() }
+  }
+
+  const handleToggleLike = async (post) => {
+    if (!session?.user) return
+
+    if (post.liked_by_me) {
+      await supabase
+        .from('likes')
+        .delete()
+        .eq('post_id', post.id)
+        .eq('user_id', session.user.id)
+    } else {
+      await supabase
+        .from('likes')
+        .insert([{ post_id: post.id, user_id: session.user.id }])
+    }
+
+    fetchPosts()
+  }
+
+  const fetchComments = async (postId) => {
+    const { data, error } = await supabase
+      .from('comments')
+      .select('id, post_id, user_id, author_name, content, created_at')
+      .eq('post_id', postId)
+      .order('created_at', { ascending: true })
+
+    if (!error) setPostCommentsMap(prev => ({ ...prev, [postId]: data || [] }))
+  }
+
+  const handleToggleComments = (postId) => {
+    const next = openCommentsPostId === postId ? null : postId
+    setOpenCommentsPostId(next)
+    if (next) fetchComments(next)
+  }
+
+  const handleCreateComment = async (postId) => {
+    const content = (commentInputs[postId] || '').trim()
+    if (!content || !session?.user) return
+
+    const authorName = headerDisplayName || session.user.email?.split('@')[0] || 'Estudante UFA'
+
+    const { error } = await supabase.from('comments').insert([{
+      post_id: postId,
+      user_id: session.user.id,
+      author_name: authorName,
+      content
+    }])
+
+    if (!error) {
+      setCommentInputs(prev => ({ ...prev, [postId]: '' }))
+      fetchComments(postId)
+      fetchPosts()
+    }
+  }
+
+  const fetchDashboardInsights = async () => {
+    const user = session?.user
+    if (!user) return
+
+    const { data: streakData } = await supabase
+      .from('study_streaks')
+      .select('*')
+      .eq('user_id', user.id)
+      .maybeSingle()
+
+    if (streakData) setStudyStreak(streakData)
+
+    const { start, end } = getCurrentWeekRange()
+    const { data: goalData } = await supabase
+      .from('weekly_goals')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('week_start', start)
+      .maybeSingle()
+
+    if (goalData) setWeeklyGoal(goalData)
+    else {
+      const { data: createdGoal } = await supabase
+        .from('weekly_goals')
+        .insert([{ user_id: user.id, week_start: start, week_end: end, target_tasks: 7, completed_tasks: 0 }])
+        .select('*')
+        .single()
+
+      if (createdGoal) setWeeklyGoal(createdGoal)
+    }
   }
 
   // ==================== LÓGICA DA AGENDA ====================
@@ -410,9 +644,9 @@ export default function Dashboard({ session, isDark, toggleDark }) {
   const pendingTasksCount = tasks.filter(task => !task.is_completed).length
 
   const completedTasksCount = tasks.length - pendingTasksCount
-  const weekGoalTotal = 7
-  const weekGoalDone = Math.min(completedTasksCount || 4, weekGoalTotal)
-  const weekGoalPercent = Math.round((weekGoalDone / weekGoalTotal) * 100)
+  const weekGoalTotal = weeklyGoal?.target_tasks || 7
+  const weekGoalDone = Math.min(weeklyGoal?.completed_tasks || 0, weekGoalTotal)
+  const weekGoalPercent = weekGoalTotal > 0 ? Math.round((weekGoalDone / weekGoalTotal) * 100) : 0
   const nextDeadlineTask = tasks
     .filter(task => !task.is_completed && task.due_date)
     .sort((a, b) => new Date(a.due_date) - new Date(b.due_date))[0]
@@ -684,7 +918,7 @@ export default function Dashboard({ session, isDark, toggleDark }) {
                       <div className="flex items-center gap-2 text-[13px] font-bold text-[#00674F] dark:text-emerald-300 mb-2">
                         <span>🔥</span> Streak de estudos
                       </div>
-                      <div className="text-3xl font-bold text-[#1a2e26] dark:text-gray-100 leading-none">7 <span className="text-lg font-semibold text-[#5a6b63] dark:text-gray-300">dias</span></div>
+                      <div className="text-3xl font-bold text-[#1a2e26] dark:text-gray-100 leading-none">{studyStreak?.current_streak || 0} <span className="text-lg font-semibold text-[#5a6b63] dark:text-gray-300">dias</span></div>
                       <p className="text-sm text-[#5a6b63] dark:text-gray-400 mt-1">consecutivos</p>
                     </div>
                     <div className="w-14 h-14 rounded-full bg-[#fdf5e0] dark:bg-[#3a3012] flex items-center justify-center text-3xl shadow-inner">🔥</div>
@@ -1568,9 +1802,51 @@ export default function Dashboard({ session, isDark, toggleDark }) {
                             </div>
                             <p className="text-[12px] text-[#5a6b63] dark:text-gray-300 mt-3 whitespace-pre-wrap break-words leading-relaxed">{post.content}</p>
                             <div className="flex items-center gap-5 pt-3 mt-3 border-t border-[#eef2ef] dark:border-gray-700 text-[11px] text-gray-400">
-                              <button type="button" className="flex items-center gap-1.5 hover:text-[#00674F] transition-colors">♡ <span>{index + 1}</span></button>
-                              <button type="button" className="flex items-center gap-1.5 hover:text-[#00674F] transition-colors">💬 <span>{index % 3}</span></button>
+                              <button type="button" onClick={() => handleToggleLike(post)} className={`flex items-center gap-1.5 transition-colors ${post.liked_by_me ? 'text-[#00674F] font-bold' : 'hover:text-[#00674F]'}`}>
+                                {post.liked_by_me ? '♥' : '♡'} <span>{post.likes_count || 0}</span>
+                              </button>
+                              <button type="button" onClick={() => handleToggleComments(post.id)} className={`flex items-center gap-1.5 transition-colors ${openCommentsPostId === post.id ? 'text-[#00674F] font-bold' : 'hover:text-[#00674F]'}`}>
+                                💬 <span>{post.comments_count || 0}</span>
+                              </button>
                             </div>
+
+                            {openCommentsPostId === post.id && (
+                              <div className="mt-3 pt-3 border-t border-[#eef2ef] dark:border-gray-700 space-y-3">
+                                <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                                  {(postCommentsMap[post.id] || []).length === 0 ? (
+                                    <p className="text-[11px] text-gray-400">Nenhum comentário ainda.</p>
+                                  ) : (
+                                    (postCommentsMap[post.id] || []).map(comment => (
+                                      <div key={comment.id} className="flex gap-2">
+                                        <div className="w-7 h-7 rounded-full bg-[#e8f5ef] text-[#00674F] flex items-center justify-center text-[10px] font-bold shrink-0">
+                                          {(comment.author_name || 'EU').slice(0, 2).toUpperCase()}
+                                        </div>
+                                        <div className="flex-1 bg-[#fafcfb] dark:bg-gray-900 border border-[#e8ede9] dark:border-gray-700 rounded-xl px-3 py-2">
+                                          <div className="flex items-center gap-2 mb-1">
+                                            <span className="text-[11px] font-bold text-[#1a2e26] dark:text-gray-100">{comment.author_name || 'Estudante UFA'}</span>
+                                            <span className="text-[9px] text-gray-400">{formatRelativeTime(comment.created_at)}</span>
+                                          </div>
+                                          <p className="text-[11px] text-[#5a6b63] dark:text-gray-300">{comment.content}</p>
+                                        </div>
+                                      </div>
+                                    ))
+                                  )}
+                                </div>
+                                <div className="flex gap-2">
+                                  <input
+                                    type="text"
+                                    placeholder="Escreva um comentário..."
+                                    value={commentInputs[post.id] || ''}
+                                    onChange={(e) => setCommentInputs(prev => ({ ...prev, [post.id]: e.target.value }))}
+                                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleCreateComment(post.id) } }}
+                                    className="flex-1 px-3 py-2 border border-[#dde5e0] dark:border-gray-700 rounded-xl text-[11px] bg-white dark:bg-gray-800 outline-none focus:border-[#00674F]"
+                                  />
+                                  <button type="button" onClick={() => handleCreateComment(post.id)} className="w-9 h-9 rounded-xl bg-[#00674F] text-white flex items-center justify-center shadow-sm">
+                                    <Send size={13} />
+                                  </button>
+                                </div>
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>
