@@ -27,6 +27,11 @@ export default function Dashboard({ session }) {
   const [newTaskRecurring, setNewTaskRecurring] = useState(false)
   const [expandedTaskId, setExpandedTaskId] = useState(null)
   const [taskAttachmentsMap, setTaskAttachmentsMap] = useState({})
+  const [taskFilter, setTaskFilter] = useState('todas') // 'todas' | 'pendentes' | 'concluidas'
+  const [taskSearch, setTaskSearch] = useState('')
+  const [showFilterMenu, setShowFilterMenu] = useState(false)
+  const [filterDifficulty, setFilterDifficulty] = useState('') // '' | 'Alta' | 'Média' | 'Baixa'
+  const [filterLabel, setFilterLabel] = useState('')   // '' | 'Acadêmico' | 'Pessoal' | 'Projeto'
   const [taskAttachments, setTaskAttachments] = useState([])
   const [isDragOver, setIsDragOver] = useState(false)
 
@@ -609,27 +614,72 @@ export default function Dashboard({ session }) {
                   </div>
                   <div className="relative w-full md:w-64">
                     <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                    <input type="text" placeholder="Buscar tarefas..." className="w-full pl-9 pr-4 py-2.5 border border-[#dde5e0] rounded-xl text-xs bg-[#fafcfb] outline-none focus:border-[#00674F] transition-colors" />
+                    <input type="text" placeholder="Buscar tarefas..." value={taskSearch} onChange={e => setTaskSearch(e.target.value)} className="w-full pl-9 pr-4 py-2.5 border border-[#dde5e0] rounded-xl text-xs bg-[#fafcfb] outline-none focus:border-[#00674F] transition-colors" />
                   </div>
                 </div>
 
                 {/* Barra de Filtros e Ações */}
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mb-6">
                   <div className="flex items-center gap-2 overflow-x-auto scrollbar-none pb-1 lg:pb-0">
-                    <button className="px-3.5 py-1.5 bg-[#00674F] text-white rounded-lg text-xs font-semibold flex items-center gap-2 whitespace-nowrap shadow-sm">
-                      Todas <span className="bg-white/20 px-1.5 py-0.5 rounded text-[10px]">{tasks.length}</span>
-                    </button>
-                    <button className="px-3.5 py-1.5 bg-white border border-[#dde5e0] text-gray-600 hover:bg-gray-50 rounded-lg text-xs font-semibold flex items-center gap-2 whitespace-nowrap transition-colors">
-                      Pendentes <span className="bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded text-[10px]">{pendingTasksCount}</span>
-                    </button>
-                    <button className="px-3.5 py-1.5 bg-white border border-[#dde5e0] text-gray-600 hover:bg-gray-50 rounded-lg text-xs font-semibold flex items-center gap-2 whitespace-nowrap transition-colors">
-                      Concluídas <span className="bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded text-[10px]">{tasks.length - pendingTasksCount}</span>
-                    </button>
+                    {[
+                      { key: 'todas', label: 'Todas', count: tasks.length },
+                      { key: 'pendentes', label: 'Pendentes', count: pendingTasksCount },
+                      { key: 'concluidas', label: 'Concluídas', count: tasks.length - pendingTasksCount },
+                    ].map(({ key, label, count }) => (
+                      <button key={key} onClick={() => setTaskFilter(key)}
+                        className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 whitespace-nowrap transition-colors shadow-sm
+                          ${taskFilter === key ? 'bg-[#00674F] text-white' : 'bg-white border border-[#dde5e0] text-gray-600 hover:bg-gray-50'}`}>
+                        {label}
+                        <span className={`px-1.5 py-0.5 rounded text-[10px] ${taskFilter === key ? 'bg-white/20' : 'bg-gray-100 text-gray-500'}`}>{count}</span>
+                      </button>
+                    ))}
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    <button className="px-3.5 py-1.5 bg-white border border-[#dde5e0] text-gray-600 hover:bg-gray-50 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors">
-                      <SlidersHorizontal size={14} /> Filtros
-                    </button>
+                    <div className="relative">
+                      <button onClick={() => setShowFilterMenu(p => !p)}
+                        className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors border
+                          ${(filterDifficulty || filterLabel) ? 'bg-[#e8f5ef] border-[#00674F] text-[#00674F]' : 'bg-white border-[#dde5e0] text-gray-600 hover:bg-gray-50'}`}>
+                        <SlidersHorizontal size={14} /> Filtros
+                        {(filterDifficulty || filterLabel) && <span className="w-1.5 h-1.5 rounded-full bg-[#00674F]"></span>}
+                      </button>
+                      {showFilterMenu && (
+                        <div className="absolute right-0 top-9 z-30 bg-white border border-[#e4e9e6] rounded-xl shadow-lg p-4 w-56 space-y-4">
+                          <div>
+                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Dificuldade</p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {['', 'Baixa', 'Média', 'Alta'].map(d => (
+                                <button key={d} onClick={() => setFilterDifficulty(d)}
+                                  className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition-colors
+                                    ${filterDifficulty === d
+                                      ? d === 'Alta' ? 'bg-red-50 border-red-300 text-red-600'
+                                        : d === 'Média' ? 'bg-amber-50 border-amber-300 text-amber-600'
+                                          : d === 'Baixa' ? 'bg-emerald-50 border-emerald-300 text-emerald-600'
+                                            : 'bg-[#e8f5ef] border-[#00674F] text-[#00674F]'
+                                      : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'}`}>
+                                  {d || 'Todas'}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Etiqueta</p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {['', 'Acadêmico', 'Pessoal', 'Projeto'].map(l => (
+                                <button key={l} onClick={() => setFilterLabel(l)}
+                                  className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition-colors
+                                    ${filterLabel === l ? 'bg-[#e8f5ef] border-[#00674F] text-[#00674F]' : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'}`}>
+                                  {l || 'Todas'}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                          <button onClick={() => { setFilterDifficulty(''); setFilterLabel(''); setShowFilterMenu(false) }}
+                            className="w-full text-[11px] text-gray-400 hover:text-red-500 transition-colors text-center pt-1 border-t border-gray-100">
+                            Limpar filtros
+                          </button>
+                        </div>
+                      )}
+                    </div>
                     {/* BOTÃO QUE ABRE O MODAL */}
                     <button onClick={() => setShowTaskModal(true)} className="px-4 py-1.5 bg-[#00674F] text-white rounded-lg text-xs font-bold hover:bg-[#005040] transition-colors shadow-sm flex items-center gap-1.5">
                       <Plus size={14} /> Adicionar tarefa
@@ -644,15 +694,33 @@ export default function Dashboard({ session }) {
                     <div className="flex items-center justify-between border-b border-gray-100 pb-2 mb-3">
                       <div className="flex items-center gap-2 text-[13px] font-bold text-[#1a2e26]">
                         <ChevronDown size={16} /> Suas tarefas
-                        <span className="text-gray-400 font-medium text-xs ml-1">• {tasks.length} itens</span>
+                        <span className="text-gray-400 font-medium text-xs ml-1">• {tasks.filter(t => {
+                          const matchFilter = taskFilter === 'todas' ? true : taskFilter === 'pendentes' ? !t.is_completed : t.is_completed
+                          const matchSearch = taskSearch === '' || t.title.toLowerCase().includes(taskSearch.toLowerCase())
+                          const matchDiff = filterDifficulty === '' || (t.difficulty || 'Média') === filterDifficulty
+                          const matchLabel = filterLabel === '' || (t.label || 'Acadêmico') === filterLabel
+                          return matchFilter && matchSearch && matchDiff && matchLabel
+                        }).length} itens</span>
                       </div>
                     </div>
 
                     {/* Cards Renderizados — Accordion */}
-                    {tasks.length === 0 ? (
-                      <p className="text-center text-gray-400 text-xs py-8">Nenhuma tarefa criada.</p>
+                    {tasks.filter(t => {
+                      const matchFilter = taskFilter === 'todas' ? true : taskFilter === 'pendentes' ? !t.is_completed : t.is_completed
+                      const matchSearch = taskSearch === '' || t.title.toLowerCase().includes(taskSearch.toLowerCase())
+                      const matchDiff = filterDifficulty === '' || (t.difficulty || 'Média') === filterDifficulty
+                      const matchLabel = filterLabel === '' || (t.label || 'Acadêmico') === filterLabel
+                      return matchFilter && matchSearch && matchDiff && matchLabel
+                    }).length === 0 ? (
+                      <p className="text-center text-gray-400 text-xs py-8">{tasks.length === 0 ? 'Nenhuma tarefa criada.' : 'Nenhuma tarefa encontrada.'}</p>
                     ) : (
-                      tasks.map((task) => {
+                      tasks.filter(t => {
+                        const matchFilter = taskFilter === 'todas' ? true : taskFilter === 'pendentes' ? !t.is_completed : t.is_completed
+                        const matchSearch = taskSearch === '' || t.title.toLowerCase().includes(taskSearch.toLowerCase())
+                        const matchDiff = filterDifficulty === '' || (t.difficulty || 'Média') === filterDifficulty
+                        const matchLabel = filterLabel === '' || (t.label || 'Acadêmico') === filterLabel
+                        return matchFilter && matchSearch && matchDiff && matchLabel
+                      }).map((task) => {
                         const isExpanded = expandedTaskId === task.id
                         const atts = taskAttachmentsMap[task.id] || []
                         const diffColor = task.difficulty === 'Alta' ? 'bg-red-500' : task.difficulty === 'Baixa' ? 'bg-emerald-500' : 'bg-amber-500'
