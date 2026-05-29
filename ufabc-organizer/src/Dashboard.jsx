@@ -87,6 +87,7 @@ const getCalendarDays = (baseDate) => {
 export default function Dashboard({ session, isDark, toggleDark }) {
   // Estado de Navigation das Abas
   const [activeTab, setActiveTab] = useState('inicio')
+  const [showUserMenu, setShowUserMenu] = useState(false)
 
   // Estados das Tarefas
   const [tasks, setTasks] = useState([])
@@ -503,23 +504,69 @@ export default function Dashboard({ session, isDark, toggleDark }) {
         </div>
 
         <div className="flex items-center gap-3 relative z-10">
-          <div className="flex items-center gap-2.5 bg-white/10 border border-white/15 rounded-full py-1.5 pl-1.5 pr-3.5 backdrop-blur-md cursor-pointer hover:bg-white/15 transition-all duration-200">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#D3AF37] to-[#a88620] flex items-center justify-center text-xs font-semibold text-white shrink-0 shadow-sm">
-              {avatarInitials}
-            </div>
-            <div className="text-white hidden sm:block">
-              <span className="text-xs font-medium block">{headerDisplayName}</span>
-              <span className="text-[10px] text-white/60 block truncate max-w-[140px]">{headerEmail}</span>
-            </div>
-            <ChevronDown size={14} className="text-white/50 ml-0.5" />
+          <div className="relative">
+            <button
+              onClick={() => setShowUserMenu(prev => !prev)}
+              className="flex items-center gap-2.5 bg-white/10 border border-white/15 rounded-full py-1.5 pl-1.5 pr-3.5 backdrop-blur-md cursor-pointer hover:bg-white/15 transition-all duration-200"
+            >
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#D3AF37] to-[#a88620] flex items-center justify-center text-xs font-semibold text-white shrink-0 shadow-sm">
+                {avatarInitials}
+              </div>
+              <div className="text-white hidden sm:block text-left">
+                <span className="text-xs font-medium block">{headerDisplayName}</span>
+                <span className="text-[10px] text-white/60 block truncate max-w-[140px]">{headerEmail}</span>
+              </div>
+              <ChevronDown size={14} className={`text-white/50 ml-0.5 transition-transform ${showUserMenu ? 'rotate-180' : ''}`} />
+            </button>
+
+            {showUserMenu && (
+              <div className="absolute right-0 top-[52px] z-50 w-72 bg-white dark:bg-gray-900 border border-[#e4e9e6] dark:border-gray-800 rounded-2xl shadow-[0_18px_50px_rgba(0,0,0,0.18)] overflow-hidden animate-fade-in">
+                <div className="p-4 flex items-center gap-3 border-b border-[#edf1ee] dark:border-gray-800">
+                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#D3AF37] to-[#a88620] flex items-center justify-center text-sm font-bold text-white shadow-sm">
+                    {avatarInitials}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-[#1a2e26] dark:text-gray-100 truncate">{headerDisplayName}</p>
+                    <p className="text-xs text-[#8a9e94] dark:text-gray-400 truncate">{headerEmail}</p>
+                  </div>
+                </div>
+
+                <div className="p-2">
+                  <button
+                    onClick={() => { setActiveTab('configuracoes'); setShowUserMenu(false) }}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-[#3d4f47] dark:text-gray-200 hover:bg-[#f0f5f2] dark:hover:bg-gray-800 transition-colors"
+                  >
+                    <Settings size={17} className="text-[#00674F]" />
+                    Configurações
+                  </button>
+
+                  <button
+                    onClick={toggleDark}
+                    className="w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-[#3d4f47] dark:text-gray-200 hover:bg-[#f0f5f2] dark:hover:bg-gray-800 transition-colors"
+                  >
+                    <span className="flex items-center gap-3">
+                      {isDark ? <Sun size={17} className="text-[#D3AF37]" /> : <Moon size={17} className="text-[#00674F]" />}
+                      Tema
+                    </span>
+                    <span className={`w-10 h-5 rounded-full p-0.5 transition-colors ${isDark ? 'bg-[#00674F]' : 'bg-gray-300'}`}>
+                      <span className={`block w-4 h-4 rounded-full bg-white shadow transition-transform ${isDark ? 'translate-x-5' : 'translate-x-0'}`} />
+                    </span>
+                  </button>
+                </div>
+
+                <div className="p-2 border-t border-[#edf1ee] dark:border-gray-800">
+                  <button
+                    onClick={() => supabase.auth.signOut()}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
+                  >
+                    <LogOut size={17} />
+                    Sair
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
-          <button
-            onClick={toggleDark}
-            title={isDark ? 'Modo claro' : 'Modo escuro'}
-            className="flex items-center justify-center w-10 h-10 bg-white/10 border border-white/15 rounded-xl text-white/85 hover:bg-white/15 transition-all duration-200 backdrop-blur-md"
-          >
-            {isDark ? <Sun size={17} /> : <Moon size={17} />}
-          </button>
+
           <button onClick={() => supabase.auth.signOut()} className="flex items-center gap-1.5 bg-gradient-to-br from-[#D3AF37] to-[#b8942a] text-white rounded-xl px-4 py-2 text-xs font-semibold shadow-sm"><LogOut size={14} /><span className="hidden sm:inline">Sair</span></button>
         </div>
       </header>
@@ -534,7 +581,6 @@ export default function Dashboard({ session, isDark, toggleDark }) {
           <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs text-gray-300 cursor-not-allowed"><Megaphone size={16} /><span>Avisos</span></div>
           <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs text-gray-300 cursor-not-allowed"><LayoutGrid size={16} /><span>Feed</span></div>
           <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs text-gray-300 cursor-not-allowed"><BarChart size={16} /><span>Relatórios</span></div>
-          <button onClick={() => setActiveTab('configuracoes')} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium transition-all ${activeTab === 'configuracoes' ? 'bg-[#00674F] text-white shadow-sm' : 'text-[#5a6b63] dark:text-gray-300 hover:bg-[#f0f5f2] dark:hover:bg-gray-800'}`}><Settings size={16} /><span>Configurações</span></button>
           <div className="flex-1" />
           <div className="flex items-center gap-2 px-3 py-2 rounded-xl text-[#8a9e94] dark:text-gray-400 text-[11px] opacity-50"><ChevronLeft size={14} /><span>Recolher</span></div>
         </aside>
