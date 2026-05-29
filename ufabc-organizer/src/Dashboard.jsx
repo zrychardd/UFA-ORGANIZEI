@@ -47,6 +47,7 @@ export default function Dashboard({ session }) {
   const [newEventTime, setNewEventTime] = useState('')
   const [newEventLocation, setNewEventLocation] = useState('')
   const [newEventCategory, setNewEventCategory] = useState('Acadêmico')
+  const [agendaView, setAgendaView] = useState('mes') // 'mes' | 'semana' | 'dia'
 
   // Filtros de Categorias da Agenda
   const [visibleCategories, setVisibleCategories] = useState({
@@ -332,6 +333,28 @@ export default function Dashboard({ session }) {
     daysInCalendar.push({ dayNumber: i, isCurrentMonth: true, fullDateString: `2024-05-${String(i).padStart(2, '0')}` })
   }
   daysInCalendar.push({ dayNumber: 1, isCurrentMonth: false, fullDateString: '2024-06-01' })
+
+  const weekDays = [
+    { label: 'DOM', day: '18', fullDateString: '2024-05-18' },
+    { label: 'SEG', day: '19', fullDateString: '2024-05-19' },
+    { label: 'TER', day: '20', fullDateString: '2024-05-20' },
+    { label: 'QUA', day: '21', fullDateString: '2024-05-21' },
+    { label: 'QUI', day: '22', fullDateString: '2024-05-22' },
+    { label: 'SEX', day: '23', fullDateString: '2024-05-23' },
+    { label: 'SÁB', day: '24', fullDateString: '2024-05-24' }
+  ]
+
+  const agendaHours = Array.from({ length: 15 }, (_, i) => i + 8) // 08:00 até 22:00
+  const hourRowHeight = 64
+  const currentTimeTop = ((16 + 25 / 60) - 8) * hourRowHeight
+
+  const getEventPosition = (eventTime) => {
+    if (!eventTime) return { top: hourRowHeight, height: hourRowHeight - 8 }
+    const [hour = '9', minute = '0'] = eventTime.split(':')
+    const decimalHour = Number(hour) + Number(minute || 0) / 60
+    const top = Math.max(0, (decimalHour - 8) * hourRowHeight)
+    return { top, height: hourRowHeight - 8 }
+  }
 
   return (
     <div className="flex flex-col h-screen bg-[#F5F7F6] min-h-[640px] font-sans antialiased overflow-hidden">
@@ -912,64 +935,158 @@ export default function Dashboard({ session }) {
                   </div>
 
                   <div className="flex items-center gap-1.5 text-sm font-bold text-[#1a2e26]">
-                    Maio 2024
+                    {agendaView === 'semana' ? '18 - 24 de Maio de 2024' : agendaView === 'dia' ? '15 de Maio de 2024' : 'Maio 2024'}
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
                   </div>
 
                   <div className="flex bg-[#f3f6f4] rounded-lg p-0.5 border border-[#e4e9e6]">
-                    <button className="px-3 py-1 bg-white text-[#00674F] font-bold rounded-md text-xs shadow-sm">Mês</button>
-                    <button className="px-3 py-1 text-gray-400 font-medium rounded-md text-xs">Semana</button>
-                    <button className="px-3 py-1 text-gray-400 font-medium rounded-md text-xs">Dia</button>
+                    <button onClick={() => setAgendaView('mes')} className={`px-3 py-1 font-bold rounded-md text-xs transition-all ${agendaView === 'mes' ? 'bg-white text-[#00674F] shadow-sm' : 'text-gray-400 hover:text-[#00674F]'}`}>Mês</button>
+                    <button onClick={() => setAgendaView('semana')} className={`px-3 py-1 font-bold rounded-md text-xs transition-all ${agendaView === 'semana' ? 'bg-white text-[#00674F] shadow-sm' : 'text-gray-400 hover:text-[#00674F]'}`}>Semana</button>
+                    <button onClick={() => setAgendaView('dia')} className={`px-3 py-1 font-bold rounded-md text-xs transition-all ${agendaView === 'dia' ? 'bg-white text-[#00674F] shadow-sm' : 'text-gray-400 hover:text-[#00674F]'}`}>Dia</button>
                   </div>
                 </div>
 
-                {/* Cabeçalho dias da semana */}
-                <div className="grid grid-cols-7 mb-1">
-                  {['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB'].map(d => (
-                    <div key={d} className="text-center text-[10px] font-bold text-[#8a9e94] tracking-widest py-2">{d}</div>
-                  ))}
-                </div>
+                {agendaView === 'semana' ? (
+                  <div className="rounded-xl border border-[#e8ede9] overflow-hidden bg-white">
+                    {/* Cabeçalho dos dias da semana */}
+                    <div className="grid grid-cols-[54px_repeat(7,minmax(0,1fr))] border-b border-[#e8ede9] bg-white">
+                      <div className="h-12" />
+                      {weekDays.map(day => (
+                        <div key={day.fullDateString} className="h-12 flex items-center justify-center text-[10px] font-bold text-[#6f8179] tracking-wide border-l border-[#edf1ef]">
+                          {day.label} {day.day}/05
+                        </div>
+                      ))}
+                    </div>
 
-                {/* Grade do calendário — estilo Notion/Linear */}
-                <div className="grid grid-cols-7 border-t border-l border-[#e8ede9] rounded-b-xl overflow-hidden">
-                  {daysInCalendar.map((item, idx) => {
-                    const dayEvents = events.filter(e => e.event_date === item.fullDateString && visibleCategories[e.category])
-                    const isToday = item.dayNumber === 15 && item.isCurrentMonth
-                    return (
-                      <div
-                        key={idx}
-                        className={`min-h-[90px] border-r border-b border-[#e8ede9] p-1.5 flex flex-col transition-colors hover:bg-[#fafcfb]
-                          ${!item.isCurrentMonth ? 'bg-[#f9fbfa]' : 'bg-white'}`}
-                      >
-                        {/* Número do dia */}
-                        <div className="mb-1">
-                          <span className={`text-[11px] font-semibold inline-flex items-center justify-center w-5 h-5 rounded-full
-                            ${isToday
-                              ? 'bg-[#00674F] text-white'
-                              : item.isCurrentMonth ? 'text-[#1a2e26]' : 'text-[#c4d0cb]'
-                            }`}>
-                            {item.dayNumber}
-                          </span>
-                        </div>
-                        {/* Eventos do dia */}
-                        <div className="flex flex-col gap-0.5 overflow-hidden">
-                          {dayEvents.map(ev => {
-                            const style = getCategoryStyle(ev.category)
-                            return (
-                              <div
-                                key={ev.id}
-                                className={`text-[9px] px-1.5 py-0.5 rounded-md border-l-2 leading-tight ${style.bg} ${style.text} ${style.border}`}
-                              >
-                                <div className="font-semibold truncate">{ev.title}</div>
-                                {ev.event_time && <div className="opacity-70 font-normal">{ev.event_time}</div>}
-                              </div>
-                            )
-                          })}
-                        </div>
+                    {/* Grade semanal com horários */}
+                    <div className="grid grid-cols-[54px_repeat(7,minmax(0,1fr))] relative" style={{ height: `${agendaHours.length * hourRowHeight}px` }}>
+                      <div className="relative bg-white border-r border-[#e8ede9]">
+                        {agendaHours.map(hour => (
+                          <div key={hour} className="absolute left-0 right-0 text-[10px] text-[#5a6b63] font-medium pr-2 text-right" style={{ top: `${(hour - 8) * hourRowHeight - 6}px` }}>
+                            {String(hour).padStart(2, '0')}:00
+                          </div>
+                        ))}
                       </div>
-                    )
-                  })}
-                </div>
+
+                      {weekDays.map(day => {
+                        const dayEvents = events.filter(e => e.event_date === day.fullDateString && visibleCategories[e.category])
+                        return (
+                          <div key={day.fullDateString} className="relative border-l border-[#edf1ef] bg-white">
+                            {agendaHours.map(hour => (
+                              <div key={hour} className="absolute left-0 right-0 border-t border-[#edf1ef]" style={{ top: `${(hour - 8) * hourRowHeight}px` }} />
+                            ))}
+                            {dayEvents.map(ev => {
+                              const style = getCategoryStyle(ev.category)
+                              const pos = getEventPosition(ev.event_time)
+                              return (
+                                <div
+                                  key={ev.id}
+                                  className={`absolute left-2 right-2 rounded-xl border-l-4 px-3 py-2 shadow-sm ${style.bg} ${style.text} ${style.border}`}
+                                  style={{ top: `${pos.top + 6}px`, height: `${pos.height}px` }}
+                                >
+                                  <div className="text-[11px] font-bold truncate">{ev.title}</div>
+                                  <div className="flex items-center gap-1 mt-1 text-[9px] opacity-80">
+                                    <span className={`w-1.5 h-1.5 rounded-full ${style.dot}`} />
+                                    {ev.category}
+                                  </div>
+                                  <div className="text-[9px] opacity-75 mt-0.5">{ev.event_time || 'Sem horário'}</div>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        )
+                      })}
+
+                      {/* Linha de horário atual */}
+                      <div className="absolute left-[54px] right-0 h-px bg-red-400 z-20" style={{ top: `${currentTimeTop}px` }}>
+                        <span className="absolute -left-9 -top-2 text-[9px] font-bold text-red-500 bg-white pr-1">16:25</span>
+                        <span className="absolute -left-1.5 -top-1.5 w-3 h-3 rounded-full bg-red-400 border-2 border-white" />
+                      </div>
+                    </div>
+                  </div>
+                ) : agendaView === 'dia' ? (
+                  <div className="rounded-xl border border-[#e8ede9] overflow-hidden bg-white">
+                    <div className="px-4 py-3 border-b border-[#e8ede9] text-[12px] font-bold text-[#6f8179]">
+                      Quarta-feira, 15 de Maio de 2024
+                    </div>
+                    <div className="relative pl-[54px]" style={{ height: `${agendaHours.length * hourRowHeight}px` }}>
+                      <div className="absolute left-0 top-0 bottom-0 w-[54px] border-r border-[#e8ede9] bg-white">
+                        {agendaHours.map(hour => (
+                          <div key={hour} className="absolute left-0 right-0 text-[10px] text-[#5a6b63] font-medium pr-2 text-right" style={{ top: `${(hour - 8) * hourRowHeight - 6}px` }}>
+                            {String(hour).padStart(2, '0')}:00
+                          </div>
+                        ))}
+                      </div>
+                      {agendaHours.map(hour => (
+                        <div key={hour} className="absolute left-[54px] right-0 border-t border-[#edf1ef]" style={{ top: `${(hour - 8) * hourRowHeight}px` }} />
+                      ))}
+                      {events.filter(e => e.event_date === '2024-05-15' && visibleCategories[e.category]).map(ev => {
+                        const style = getCategoryStyle(ev.category)
+                        const pos = getEventPosition(ev.event_time)
+                        return (
+                          <div key={ev.id} className={`absolute left-[72px] right-4 rounded-xl border-l-4 px-3 py-2 shadow-sm ${style.bg} ${style.text} ${style.border}`} style={{ top: `${pos.top + 6}px`, height: `${pos.height}px` }}>
+                            <div className="text-[11px] font-bold truncate">{ev.title}</div>
+                            <div className="text-[9px] opacity-75 mt-1">{ev.category} • {ev.event_time || 'Sem horário'}</div>
+                          </div>
+                        )
+                      })}
+                      <div className="absolute left-[54px] right-0 h-px bg-red-400 z-20" style={{ top: `${currentTimeTop}px` }}>
+                        <span className="absolute -left-9 -top-2 text-[9px] font-bold text-red-500 bg-white pr-1">16:25</span>
+                        <span className="absolute -left-1.5 -top-1.5 w-3 h-3 rounded-full bg-red-400 border-2 border-white" />
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    {/* Cabeçalho dias da semana */}
+                    <div className="grid grid-cols-7 mb-1">
+                      {['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB'].map(d => (
+                        <div key={d} className="text-center text-[10px] font-bold text-[#8a9e94] tracking-widest py-2">{d}</div>
+                      ))}
+                    </div>
+
+                    {/* Grade do calendário — estilo Notion/Linear */}
+                    <div className="grid grid-cols-7 border-t border-l border-[#e8ede9] rounded-b-xl overflow-hidden">
+                      {daysInCalendar.map((item, idx) => {
+                        const dayEvents = events.filter(e => e.event_date === item.fullDateString && visibleCategories[e.category])
+                        const isToday = item.dayNumber === 15 && item.isCurrentMonth
+                        return (
+                          <div
+                            key={idx}
+                            className={`min-h-[90px] border-r border-b border-[#e8ede9] p-1.5 flex flex-col transition-colors hover:bg-[#fafcfb]
+                              ${!item.isCurrentMonth ? 'bg-[#f9fbfa]' : 'bg-white'}`}
+                          >
+                            {/* Número do dia */}
+                            <div className="mb-1">
+                              <span className={`text-[11px] font-semibold inline-flex items-center justify-center w-5 h-5 rounded-full
+                                ${isToday
+                                  ? 'bg-[#00674F] text-white'
+                                  : item.isCurrentMonth ? 'text-[#1a2e26]' : 'text-[#c4d0cb]'
+                                }`}>
+                                {item.dayNumber}
+                              </span>
+                            </div>
+                            {/* Eventos do dia */}
+                            <div className="flex flex-col gap-0.5 overflow-hidden">
+                              {dayEvents.map(ev => {
+                                const style = getCategoryStyle(ev.category)
+                                return (
+                                  <div
+                                    key={ev.id}
+                                    className={`text-[9px] px-1.5 py-0.5 rounded-md border-l-2 leading-tight ${style.bg} ${style.text} ${style.border}`}
+                                  >
+                                    <div className="font-semibold truncate">{ev.title}</div>
+                                    {ev.event_time && <div className="opacity-70 font-normal">{ev.event_time}</div>}
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </>
+                )}
 
                 {/* Legenda de categorias */}
                 <div className="flex items-center gap-4 mt-3 px-1">
@@ -982,8 +1099,7 @@ export default function Dashboard({ session }) {
                       </div>
                     )
                   })}
-                </div>
-              </div>
+                </div>              </div>
             )}
 
             {/* ABA CONFIGURAÇÕES */}
