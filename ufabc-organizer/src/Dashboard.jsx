@@ -25,6 +25,8 @@ export default function Dashboard({ session }) {
   const [newTaskLabel, setNewTaskLabel] = useState('Acadêmico')
   const [newTaskReminder, setNewTaskReminder] = useState('Sem lembrete')
   const [newTaskRecurring, setNewTaskRecurring] = useState(false)
+  const [taskAttachments, setTaskAttachments] = useState([])
+  const [isDragOver, setIsDragOver] = useState(false)
 
   // Estados do Feed Coletivo
   const [posts, setPosts] = useState([])
@@ -143,6 +145,27 @@ export default function Dashboard({ session }) {
     }
   }
 
+  // ==================== LÓGICA DE ANEXOS ====================
+  const handleAttachmentAdd = (files) => {
+    const allowed = ['pdf', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx', 'png', 'jpg', 'jpeg']
+    const maxSize = 10 * 1024 * 1024 // 10MB
+    const newFiles = Array.from(files).filter(f => {
+      const ext = f.name.split('.').pop().toLowerCase()
+      return allowed.includes(ext) && f.size <= maxSize
+    }).map(f => ({ id: Date.now() + Math.random(), name: f.name, size: f.size, type: f.name.split('.').pop().toUpperCase(), file: f }))
+    setTaskAttachments(prev => [...prev, ...newFiles])
+  }
+
+  const handleAttachmentRemove = (id) => {
+    setTaskAttachments(prev => prev.filter(a => a.id !== id))
+  }
+
+  const formatFileSize = (bytes) => {
+    if (bytes < 1024) return bytes + ' B'
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
+  }
+
   // ==================== LÓGICA DAS TAREFAS ====================
   const fetchTasks = async () => {
     const { data, error } = await supabase
@@ -157,28 +180,51 @@ export default function Dashboard({ session }) {
   const handleAddTask = async (e) => {
     e.preventDefault()
     if (!newTaskTitle.trim()) return
-
     setLoading(true)
-    const { error } = await supabase
-      .from('tasks')
-      .insert([{
-        user_id: session.user.id,
-        title: newTaskTitle,
-        due_date: newTaskDate || null,
-        is_completed: false,
-        difficulty: newTaskDifficulty // AGORA SALVA A DIFICULDADE DE VERDADE
-      }])
+    try {
+      // 1. Cria a tarefa
+      const { data: taskData, error: taskError } = await supabase
+        .from('tasks')
+        .insert([{
+          user_id: session.user.id,
+          title: newTaskTitle,
+          due_date: newTaskDate || null,
+          is_completed: false,
+          difficulty: newTaskDifficulty
+        }])
+        .select('id')
+        .single()
+      if (taskError) throw taskError
 
-    if (error) alert('Erro ao criar tarefa: ' + error.message)
-    else {
-      // Resetar os campos e fechar o modal
+      // 2. Upload dos anexos
+      for (const att of taskAttachments) {
+        if (!att.file) continue
+        const path = `${session.user.id}/${taskData.id}/${Date.now()}_${att.name}`
+        const { error: storageError } = await supabase.storage
+          .from('task-attachments')
+          .upload(path, att.file)
+        if (storageError) { console.error('Upload falhou:', storageError.message); continue }
+        await supabase.from('task_attachments').insert([{
+          task_id: taskData.id,
+          user_id: session.user.id,
+          file_name: att.name,
+          file_type: att.type,
+          file_size: att.size,
+          storage_path: path
+        }])
+      }
+
+      // 3. Reset
       setNewTaskTitle('')
       setNewTaskDate('')
       setNewTaskDescription('')
       setNewTaskTime('')
       setNewTaskDifficulty('Média')
+      setTaskAttachments([])
       setShowTaskModal(false)
       fetchTasks()
+    } catch (err) {
+      alert('Erro ao criar tarefa: ' + err.message)
     }
     setLoading(false)
   }
@@ -981,7 +1027,7 @@ export default function Dashboard({ session }) {
                 <h3 className="text-lg font-bold text-[#1a2e26]">Adicionar tarefa</h3>
                 <p className="text-xs text-gray-500 mt-1">Preencha os dados para criar uma nova tarefa.</p>
               </div>
-              <button onClick={() => setShowTaskModal(false)} className="text-gray-400 hover:text-gray-600 bg-gray-50 p-1.5 rounded-lg transition-colors">
+              <button onClick={() => { setShowTaskModal(false); setTaskAttachments([]) }} className="text-gray-400 hover:text-gray-600 bg-gray-50 p-1.5 rounded-lg transition-colors">
                 <X size={18} />
               </button>
             </div>
@@ -989,21 +1035,23 @@ export default function Dashboard({ session }) {
             {/* Form */}
             <form onSubmit={handleAddTask} className="space-y-5">
 
-              {/* Título */}
-              <div>
-                <label className="text-[11px] font-bold text-[#1a2e26] block mb-1.5">Nome da tarefa <span className="text-red-500">*</span></label>
-                <div className="relative">
-                  <input type="text" value={newTaskTitle} onChange={(e) => setNewTaskTitle(e.target.value)} placeholder="Ex: Estudar para Prova de Cálculo I" className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-[13px] bg-[#fafcfb] outline-none focus:border-[#00674F] focus:bg-white transition-colors" required />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">{newTaskTitle.length}/100</span>
+              {/* Linha 1: Título + Descrição lado a lado */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Nome da tarefa */}
+                <div>
+                  <label className="text-[11px] font-bold text-[#1a2e26] block mb-1.5">Nome da tarefa <span className="text-red-500">*</span></label>
+                  <div className="relative">
+                    <input type="text" value={newTaskTitle} onChange={(e) => setNewTaskTitle(e.target.value)} placeholder="Ex: Estudar para Prova de Cálculo I" className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-[13px] bg-[#fafcfb] outline-none focus:border-[#00674F] focus:bg-white transition-colors" required />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">{newTaskTitle.length}/100</span>
+                  </div>
                 </div>
-              </div>
-
-              {/* Descrição */}
-              <div>
-                <label className="text-[11px] font-bold text-[#1a2e26] block mb-1.5">Descrição <span className="text-gray-400 font-medium">(opcional)</span></label>
-                <div className="relative">
-                  <textarea value={newTaskDescription} onChange={(e) => setNewTaskDescription(e.target.value)} placeholder="Adicione mais detalhes sobre esta tarefa..." className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-[13px] bg-[#fafcfb] outline-none focus:border-[#00674F] focus:bg-white transition-colors min-h-[80px] resize-none"></textarea>
-                  <span className="absolute right-3 bottom-3 text-[10px] text-gray-400">{newTaskDescription.length}/500</span>
+                {/* Descrição */}
+                <div>
+                  <label className="text-[11px] font-bold text-[#1a2e26] block mb-1.5">Descrição <span className="text-gray-400 font-medium">(opcional)</span></label>
+                  <div className="relative">
+                    <textarea value={newTaskDescription} onChange={(e) => setNewTaskDescription(e.target.value)} placeholder="Adicione mais detalhes sobre esta tarefa..." className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-[13px] bg-[#fafcfb] outline-none focus:border-[#00674F] focus:bg-white transition-colors min-h-[80px] resize-none"></textarea>
+                    <span className="absolute right-3 bottom-3 text-[10px] text-gray-400">{newTaskDescription.length}/500</span>
+                  </div>
                 </div>
               </div>
 
@@ -1060,6 +1108,66 @@ export default function Dashboard({ session }) {
                 </div>
               </div>
 
+              {/* ── ANEXOS ── */}
+              <div>
+                <label className="text-[11px] font-bold text-[#1a2e26] block mb-1">Anexos <span className="text-gray-400 font-medium">(opcional)</span></label>
+                <p className="text-[10px] text-gray-500 mb-2.5">Adicione arquivos relacionados à sua tarefa.</p>
+
+                {/* Drop zone */}
+                <div
+                  onDragOver={(e) => { e.preventDefault(); setIsDragOver(true) }}
+                  onDragLeave={() => setIsDragOver(false)}
+                  onDrop={(e) => { e.preventDefault(); setIsDragOver(false); handleAttachmentAdd(e.dataTransfer.files) }}
+                  onClick={() => document.getElementById('task-file-input').click()}
+                  className={`border-2 border-dashed rounded-xl px-4 py-5 flex flex-col items-center justify-center gap-2 cursor-pointer transition-colors
+                    ${isDragOver ? 'border-[#00674F] bg-[#e8f5ef]' : 'border-gray-200 bg-[#fafcfb] hover:border-[#00674F] hover:bg-[#f0faf5]'}`}
+                >
+                  <input
+                    id="task-file-input"
+                    type="file"
+                    multiple
+                    accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.png,.jpg,.jpeg"
+                    className="hidden"
+                    onChange={(e) => handleAttachmentAdd(e.target.files)}
+                  />
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke={isDragOver ? '#00674F' : '#b0bdb7'} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="16 16 12 12 8 16" /><line x1="12" y1="12" x2="12" y2="21" />
+                    <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3" />
+                  </svg>
+                  <div className="text-center">
+                    <p className="text-[12px] font-medium text-gray-600">Arraste e solte arquivos aqui</p>
+                    <p className="text-[11px] text-gray-400">ou clique para selecionar</p>
+                  </div>
+                  <p className="text-[10px] text-gray-400">Máximo de 10MB por arquivo • PDF, DOC, DOCX, PPT, PPTX, XLS, XLSX, JPG, PNG</p>
+                </div>
+
+                {/* Lista de arquivos anexados */}
+                {taskAttachments.length > 0 && (
+                  <div className="mt-2.5 space-y-2">
+                    {taskAttachments.map(file => (
+                      <div key={file.id} className="flex items-center gap-3 px-3 py-2.5 bg-white border border-gray-200 rounded-xl">
+                        <div className="w-8 h-8 rounded-lg bg-[#e8f5ef] flex items-center justify-center shrink-0">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00674F" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" />
+                          </svg>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[12px] font-medium text-[#1a2e26] truncate">{file.name}</p>
+                          <p className="text-[10px] text-gray-400">{file.type} • {formatFileSize(file.size)}</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleAttachmentRemove(file.id)}
+                          className="text-gray-300 hover:text-red-400 transition-colors p-1 shrink-0"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               {/* Lembrete */}
               <div>
                 <label className="text-[11px] font-bold text-[#1a2e26] block mb-1.5">Lembrete <span className="text-gray-400 font-medium">(opcional)</span></label>
@@ -1082,7 +1190,7 @@ export default function Dashboard({ session }) {
                   Tarefa recorrente
                 </label>
                 <div className="flex gap-2 w-full sm:w-auto">
-                  <button type="button" onClick={() => setShowTaskModal(false)} className="flex-1 sm:flex-none px-5 py-2.5 border border-gray-200 text-gray-600 rounded-xl text-xs font-bold hover:bg-gray-50 transition-colors">
+                  <button type="button" onClick={() => { setShowTaskModal(false); setTaskAttachments([]) }} className="flex-1 sm:flex-none px-5 py-2.5 border border-gray-200 text-gray-600 rounded-xl text-xs font-bold hover:bg-gray-50 transition-colors">
                     Cancelar
                   </button>
                   <button type="submit" disabled={loading} className="flex-1 sm:flex-none px-6 py-2.5 bg-[#00674F] text-white rounded-xl text-xs font-bold hover:bg-[#005040] transition-colors shadow-sm disabled:opacity-50">
