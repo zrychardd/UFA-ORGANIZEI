@@ -25,6 +25,8 @@ export default function Dashboard({ session }) {
   const [newTaskLabel, setNewTaskLabel] = useState('Acadêmico')
   const [newTaskReminder, setNewTaskReminder] = useState('Sem lembrete')
   const [newTaskRecurring, setNewTaskRecurring] = useState(false)
+  const [expandedTaskId, setExpandedTaskId] = useState(null)
+  const [taskAttachmentsMap, setTaskAttachmentsMap] = useState({})
   const [taskAttachments, setTaskAttachments] = useState([])
   const [isDragOver, setIsDragOver] = useState(false)
 
@@ -164,6 +166,29 @@ export default function Dashboard({ session }) {
     if (bytes < 1024) return bytes + ' B'
     if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
+  }
+
+  // ==================== LÓGICA DE EXPANSÃO DE TAREFAS ====================
+  const toggleExpandTask = async (taskId) => {
+    if (expandedTaskId === taskId) { setExpandedTaskId(null); return }
+    setExpandedTaskId(taskId)
+    if (taskAttachmentsMap[taskId]) return // já carregado
+    const { data, error } = await supabase
+      .from('task_attachments')
+      .select('*')
+      .eq('task_id', taskId)
+    if (!error) setTaskAttachmentsMap(prev => ({ ...prev, [taskId]: data || [] }))
+  }
+
+  const handleDownloadAttachment = async (att) => {
+    const { data } = await supabase.storage.from('task-attachments').createSignedUrl(att.storage_path, 60)
+    if (data?.signedUrl) window.open(data.signedUrl, '_blank')
+  }
+
+  const handleDeleteAttachment = async (att, taskId) => {
+    await supabase.storage.from('task-attachments').remove([att.storage_path])
+    await supabase.from('task_attachments').delete().eq('id', att.id)
+    setTaskAttachmentsMap(prev => ({ ...prev, [taskId]: prev[taskId].filter(a => a.id !== att.id) }))
   }
 
   // ==================== LÓGICA DAS TAREFAS ====================
@@ -623,56 +648,156 @@ export default function Dashboard({ session }) {
                       </div>
                     </div>
 
-                    {/* Cards Renderizados */}
+                    {/* Cards Renderizados — Accordion */}
                     {tasks.length === 0 ? (
                       <p className="text-center text-gray-400 text-xs py-8">Nenhuma tarefa criada.</p>
                     ) : (
-                      tasks.map((task) => (
-                        <div key={task.id} className={`flex items-center justify-between p-3 bg-white border rounded-xl hover:shadow-[0_2px_12px_rgba(0,0,0,0.04)] transition-all group ${task.is_completed ? 'border-gray-100' : 'border-[#e8ede9]'}`}>
+                      tasks.map((task) => {
+                        const isExpanded = expandedTaskId === task.id
+                        const atts = taskAttachmentsMap[task.id] || []
+                        const diffColor = task.difficulty === 'Alta' ? 'bg-red-500' : task.difficulty === 'Baixa' ? 'bg-emerald-500' : 'bg-amber-500'
+                        const diffBadge = task.difficulty === 'Alta'
+                          ? 'bg-red-50 text-red-600 border-red-100'
+                          : task.difficulty === 'Baixa'
+                            ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
+                            : 'bg-amber-50 text-amber-600 border-amber-100'
 
-                          {/* Coluna 1: Check + Ícone + Título + Tag */}
-                          <div className="flex items-center gap-3.5 flex-1 min-w-0">
-                            <button onClick={() => toggleTaskComplete(task.id, task.is_completed)} className="shrink-0 transition-transform active:scale-90">
-                              {task.is_completed ? <CheckCircle className="text-[#00674F]" size={20} /> : <Circle size={20} className="text-gray-300 hover:text-gray-400" />}
-                            </button>
-                            <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${task.is_completed ? 'bg-gray-50 text-gray-400' : 'bg-[#e8f5ef] text-[#00674F]'}`}>
-                              <ListTodo size={16} />
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <h4 className={`text-[13px] font-bold truncate transition-colors ${task.is_completed ? 'text-gray-400 line-through' : 'text-[#1a2e26]'}`}>{task.title}</h4>
-                              <div className="flex items-center gap-2 mt-1">
-                                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md border ${task.is_completed ? 'bg-gray-50 text-gray-400 border-gray-100' : 'bg-[#e8f5ef] text-[#00674F] border-[#a3d9c9]'}`}>Acadêmico</span>
+                        return (
+                          <div key={task.id} className={`border rounded-xl transition-all overflow-hidden ${task.is_completed ? 'border-gray-100' : isExpanded ? 'border-[#00674F] shadow-[0_0_0_3px_rgba(0,103,79,0.06)]' : 'border-[#e8ede9] hover:shadow-[0_2px_12px_rgba(0,0,0,0.04)]'}`}>
+
+                            {/* ── LINHA PRINCIPAL ── */}
+                            <div
+                              className="flex items-center justify-between p-3 bg-white cursor-pointer group"
+                              onClick={() => toggleExpandTask(task.id)}
+                            >
+                              {/* Check + Ícone + Título + Tag */}
+                              <div className="flex items-center gap-3.5 flex-1 min-w-0">
+                                <button onClick={(e) => { e.stopPropagation(); toggleTaskComplete(task.id, task.is_completed) }} className="shrink-0 transition-transform active:scale-90">
+                                  {task.is_completed ? <CheckCircle className="text-[#00674F]" size={20} /> : <Circle size={20} className="text-gray-300 hover:text-gray-400" />}
+                                </button>
+                                <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${task.is_completed ? 'bg-gray-50 text-gray-400' : 'bg-[#e8f5ef] text-[#00674F]'}`}>
+                                  <ListTodo size={16} />
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <h4 className={`text-[13px] font-bold truncate ${task.is_completed ? 'text-gray-400 line-through' : 'text-[#1a2e26]'}`}>{task.title}</h4>
+                                  <div className="flex items-center gap-2 mt-1">
+                                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md border ${task.is_completed ? 'bg-gray-50 text-gray-400 border-gray-100' : 'bg-[#e8f5ef] text-[#00674F] border-[#a3d9c9]'}`}>{task.label || 'Acadêmico'}</span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Metadados */}
+                              <div className="flex items-center gap-5 shrink-0 hidden lg:flex ml-4">
+                                <div className="flex items-center gap-1.5 w-20">
+                                  <span className={`w-1.5 h-1.5 rounded-full ${task.is_completed ? 'bg-gray-300' : diffColor}`}></span>
+                                  <span className={`text-[11px] font-bold ${task.is_completed ? 'text-gray-400' : 'text-gray-600'}`}>{task.difficulty || 'Média'}</span>
+                                </div>
+                                <div className={`flex items-center gap-1.5 w-24 text-[11px] font-semibold ${task.is_completed ? 'text-gray-400' : 'text-gray-500'}`}>
+                                  <Calendar size={12} />
+                                  <span className="truncate">{task.due_date || 'Sem prazo'}</span>
+                                </div>
+                                <div className="w-24 flex justify-start">
+                                  {task.is_completed
+                                    ? <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-100 px-2 py-1 rounded-md flex items-center gap-1"><Check size={10} /> Concluída</span>
+                                    : <span className="text-[10px] font-bold text-amber-600 bg-amber-50 border border-amber-100 px-2 py-1 rounded-md flex items-center gap-1"><Clock size={10} /> Pendente</span>
+                                  }
+                                </div>
+                              </div>
+
+                              {/* Ações: lixeira + chevron */}
+                              <div className="flex items-center gap-1 ml-2 shrink-0">
+                                <button onClick={(e) => { e.stopPropagation(); deleteTask(task.id) }} className="text-gray-300 hover:text-red-500 p-1.5 opacity-0 group-hover:opacity-100 transition-all rounded-md hover:bg-red-50">
+                                  <Trash2 size={14} />
+                                </button>
+                                <div className={`p-1.5 rounded-md transition-transform duration-200 ${isExpanded ? 'rotate-180 text-[#00674F]' : 'text-gray-400'}`}>
+                                  <ChevronDown size={15} />
+                                </div>
                               </div>
                             </div>
-                          </div>
 
-                          {/* Coluna 2: Metadados (Prioridade DINÂMICA, Data, Status) - Escondidos no Mobile */}
-                          <div className="flex items-center gap-5 shrink-0 hidden lg:flex ml-4">
-                            <div className="flex items-center gap-1.5 w-20">
-                              <span className={`w-1.5 h-1.5 rounded-full ${task.is_completed ? 'bg-gray-300' : (task.difficulty === 'Alta' ? 'bg-red-500' : task.difficulty === 'Baixa' ? 'bg-emerald-500' : 'bg-amber-500')}`}></span>
-                              <span className={`text-[11px] font-bold ${task.is_completed ? 'text-gray-400' : 'text-gray-600'}`}>{task.difficulty || 'Média'}</span>
-                            </div>
-                            <div className={`flex items-center gap-1.5 w-24 text-[11px] font-semibold ${task.is_completed ? 'text-gray-400' : 'text-gray-500'}`}>
-                              <Calendar size={12} />
-                              <span className="truncate">{task.due_date ? task.due_date : 'Sem prazo'}</span>
-                            </div>
-                            <div className="w-24 flex justify-start">
-                              {task.is_completed ? (
-                                <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-100 px-2 py-1 rounded-md flex items-center gap-1"><Check size={10} /> Concluída</span>
-                              ) : (
-                                <span className="text-[10px] font-bold text-amber-600 bg-amber-50 border border-amber-100 px-2 py-1 rounded-md flex items-center gap-1"><Clock size={10} /> Pendente</span>
-                              )}
-                            </div>
-                          </div>
+                            {/* ── ÁREA EXPANDIDA ── */}
+                            {isExpanded && (
+                              <div className="border-t border-[#e8ede9] bg-[#fafcfb] px-5 py-4 space-y-5">
 
-                          {/* Coluna 3: Ação (Lixeira com hover suave) */}
-                          <div className="flex items-center justify-end shrink-0 w-8 ml-2">
-                            <button onClick={() => deleteTask(task.id)} className="text-gray-300 hover:text-red-500 p-1.5 opacity-0 group-hover:opacity-100 transition-all rounded-md hover:bg-red-50">
-                              <Trash2 size={14} />
-                            </button>
+                                {/* Descrição */}
+                                {task.description && (
+                                  <div>
+                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">Descrição</p>
+                                    <p className="text-[13px] text-[#5a6b63] leading-relaxed">{task.description}</p>
+                                  </div>
+                                )}
+
+                                {/* Grid de info */}
+                                <div>
+                                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Informações da atividade</p>
+                                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                    <div className="bg-white border border-[#e8ede9] rounded-xl p-3">
+                                      <div className="flex items-center gap-1.5 text-[10px] text-gray-400 mb-1"><Calendar size={11} /> Data</div>
+                                      <p className="text-[12px] font-semibold text-[#1a2e26]">{task.due_date || '—'}</p>
+                                    </div>
+                                    <div className="bg-white border border-[#e8ede9] rounded-xl p-3">
+                                      <div className="flex items-center gap-1.5 text-[10px] text-gray-400 mb-1"><Clock size={11} /> Horário</div>
+                                      <p className="text-[12px] font-semibold text-[#1a2e26]">{task.task_time || '—'}</p>
+                                    </div>
+                                    <div className="bg-white border border-[#e8ede9] rounded-xl p-3">
+                                      <div className="flex items-center gap-1.5 text-[10px] text-gray-400 mb-1"><Flame size={11} /> Dificuldade</div>
+                                      <span className={`text-[11px] font-bold px-2 py-0.5 rounded-md border ${diffBadge}`}>{task.difficulty || 'Média'}</span>
+                                    </div>
+                                    <div className="bg-white border border-[#e8ede9] rounded-xl p-3">
+                                      <div className="flex items-center gap-1.5 text-[10px] text-gray-400 mb-1"><Award size={11} /> Etiqueta</div>
+                                      <span className="text-[11px] font-bold px-2 py-0.5 rounded-md border bg-[#e8f5ef] text-[#00674F] border-[#a3d9c9]">{task.label || 'Acadêmico'}</span>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Anexos */}
+                                <div>
+                                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">
+                                    Anexos {atts.length > 0 && <span className="text-gray-300 font-medium normal-case">({atts.length})</span>}
+                                  </p>
+                                  {atts.length === 0 ? (
+                                    <p className="text-[12px] text-gray-400">Nenhum anexo.</p>
+                                  ) : (
+                                    <div className="space-y-2">
+                                      {atts.map(att => (
+                                        <div key={att.id} className="flex items-center gap-3 bg-white border border-[#e8ede9] rounded-xl px-3 py-2.5">
+                                          <div className="w-8 h-8 rounded-lg bg-[#e8f5ef] flex items-center justify-center shrink-0">
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00674F" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" />
+                                            </svg>
+                                          </div>
+                                          <div className="flex-1 min-w-0">
+                                            <p className="text-[12px] font-semibold text-[#1a2e26] truncate">{att.file_name}</p>
+                                            <p className="text-[10px] text-gray-400">{att.file_type} • {att.file_size < 1048576 ? (att.file_size / 1024).toFixed(0) + ' KB' : (att.file_size / 1048576).toFixed(1) + ' MB'}</p>
+                                          </div>
+                                          <button onClick={() => handleDownloadAttachment(att)} className="p-1.5 text-gray-400 hover:text-[#00674F] hover:bg-[#e8f5ef] rounded-lg transition-colors" title="Download">
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
+                                          </button>
+                                          {task.user_id === session.user.id && (
+                                            <button onClick={() => handleDeleteAttachment(att, task.id)} className="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Remover">
+                                              <Trash2 size={13} />
+                                            </button>
+                                          )}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* Lembrete */}
+                                {task.reminder && task.reminder !== 'Sem lembrete' && (
+                                  <div>
+                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">Lembrete</p>
+                                    <div className="flex items-center gap-2 text-[12px] text-[#5a6b63]">
+                                      <Bell size={13} className="text-[#D3AF37]" /> {task.reminder}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )}
                           </div>
-                        </div>
-                      ))
+                        )
+                      })
                     )}
                   </div>
                 </div>
