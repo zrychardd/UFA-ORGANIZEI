@@ -840,6 +840,19 @@ export default function Dashboard({ session, isDark, toggleDark }) {
                 </div>
 
                 <div className="p-2">
+
+                  <button
+                    onClick={() => {
+                      setActiveTab('configuracoes')
+                      setConfigSubTab('Perfil')
+                      setShowUserMenu(false)
+                    }}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-[#3d4f47] dark:text-gray-200 hover:bg-[#f0f5f2] dark:hover:bg-gray-800 transition-colors"
+                  >
+                    <User size={17} className="text-[#00674F]" />
+                    Meu Perfil
+                  </button>
+
                   <button
                     onClick={() => { setActiveTab('configuracoes'); setShowUserMenu(false) }}
                     className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-[#3d4f47] dark:text-gray-200 hover:bg-[#f0f5f2] dark:hover:bg-gray-800 transition-colors"
@@ -863,13 +876,6 @@ export default function Dashboard({ session, isDark, toggleDark }) {
                 </div>
 
                 <div className="p-2 border-t border-[#edf1ee] dark:border-gray-800">
-                  <button
-                    onClick={() => supabase.auth.signOut()}
-                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
-                  >
-                    <LogOut size={17} />
-                    Sair
-                  </button>
                 </div>
               </div>
             )}
