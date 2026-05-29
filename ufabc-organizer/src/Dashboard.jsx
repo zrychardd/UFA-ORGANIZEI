@@ -8,6 +8,52 @@ import {
   X, ArrowDown, Minus, ArrowUp, BookOpen, User, Briefcase
 } from 'lucide-react'
 
+const pad2 = (value) => String(value).padStart(2, '0')
+
+const toLocalDateString = (date) => {
+  const local = new Date(date)
+  return `${local.getFullYear()}-${pad2(local.getMonth() + 1)}-${pad2(local.getDate())}`
+}
+
+const formatMonthYear = (date) => {
+  return new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' })
+    .format(date)
+    .replace(/^./, (letter) => letter.toUpperCase())
+}
+
+const formatFullDate = (date) => {
+  return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
+    .format(date)
+    .replace(' de ', ' de ')
+}
+
+const getStartOfWeek = (date) => {
+  const d = new Date(date)
+  d.setHours(0, 0, 0, 0)
+  d.setDate(d.getDate() - d.getDay())
+  return d
+}
+
+const getCalendarDays = (baseDate) => {
+  const year = baseDate.getFullYear()
+  const month = baseDate.getMonth()
+  const firstDay = new Date(year, month, 1)
+  const lastDay = new Date(year, month + 1, 0)
+  const start = new Date(firstDay)
+  start.setDate(firstDay.getDate() - firstDay.getDay())
+  const totalCells = Math.ceil((firstDay.getDay() + lastDay.getDate()) / 7) * 7
+
+  return Array.from({ length: totalCells }, (_, index) => {
+    const day = new Date(start)
+    day.setDate(start.getDate() + index)
+    return {
+      dayNumber: day.getDate(),
+      isCurrentMonth: day.getMonth() === month,
+      fullDateString: toLocalDateString(day)
+    }
+  })
+}
+
 export default function Dashboard({ session }) {
   // Estado de Navigation das Abas
   const [activeTab, setActiveTab] = useState('inicio')
@@ -43,7 +89,7 @@ export default function Dashboard({ session }) {
   const [events, setEvents] = useState([])
   const [showEventModal, setShowEventModal] = useState(false)
   const [newEventTitle, setNewEventTitle] = useState('')
-  const [newEventDate, setNewEventDate] = useState('2024-05-01')
+  const [newEventDate, setNewEventDate] = useState(() => toLocalDateString(new Date()))
   const [newEventTime, setNewEventTime] = useState('')
   const [newEventLocation, setNewEventLocation] = useState('')
   const [newEventCategory, setNewEventCategory] = useState('Acadêmico')
@@ -327,26 +373,33 @@ export default function Dashboard({ session }) {
     }
   }
 
-  const daysInCalendar = []
-  daysInCalendar.push({ dayNumber: 28, isCurrentMonth: false, fullDateString: '2024-04-28' }, { dayNumber: 29, isCurrentMonth: false, fullDateString: '2024-04-29' }, { dayNumber: 30, isCurrentMonth: false, fullDateString: '2024-04-30' })
-  for (let i = 1; i <= 31; i++) {
-    daysInCalendar.push({ dayNumber: i, isCurrentMonth: true, fullDateString: `2024-05-${String(i).padStart(2, '0')}` })
-  }
-  daysInCalendar.push({ dayNumber: 1, isCurrentMonth: false, fullDateString: '2024-06-01' })
+  const today = new Date()
+  const selectedDate = today
+  const selectedMonthLabel = formatMonthYear(selectedDate)
+  const selectedDayLabel = formatFullDate(selectedDate)
+  const todayString = toLocalDateString(today)
 
-  const weekDays = [
-    { label: 'DOM', day: '18', fullDateString: '2024-05-18' },
-    { label: 'SEG', day: '19', fullDateString: '2024-05-19' },
-    { label: 'TER', day: '20', fullDateString: '2024-05-20' },
-    { label: 'QUA', day: '21', fullDateString: '2024-05-21' },
-    { label: 'QUI', day: '22', fullDateString: '2024-05-22' },
-    { label: 'SEX', day: '23', fullDateString: '2024-05-23' },
-    { label: 'SÁB', day: '24', fullDateString: '2024-05-24' }
-  ]
+  const daysInCalendar = getCalendarDays(selectedDate)
+
+  const weekStart = getStartOfWeek(selectedDate)
+  const weekEnd = new Date(weekStart)
+  weekEnd.setDate(weekStart.getDate() + 6)
+  const weekTitle = `${weekStart.getDate()} - ${weekEnd.getDate()} de ${formatMonthYear(weekEnd)}`
+  const weekDays = Array.from({ length: 7 }, (_, index) => {
+    const day = new Date(weekStart)
+    day.setDate(weekStart.getDate() + index)
+    return {
+      label: ['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB'][day.getDay()],
+      day: pad2(day.getDate()),
+      fullDateString: toLocalDateString(day)
+    }
+  })
 
   const agendaHours = Array.from({ length: 15 }, (_, i) => i + 8) // 08:00 até 22:00
   const hourRowHeight = 64
-  const currentTimeTop = ((16 + 25 / 60) - 8) * hourRowHeight
+  const currentHourDecimal = today.getHours() + today.getMinutes() / 60
+  const currentTimeTop = Math.max(0, Math.min((agendaHours.length - 1) * hourRowHeight, (currentHourDecimal - 8) * hourRowHeight))
+  const currentTimeLabel = `${pad2(today.getHours())}:${pad2(today.getMinutes())}`
 
   const getEventPosition = (eventTime) => {
     if (!eventTime) return { top: hourRowHeight, height: hourRowHeight - 8 }
@@ -935,7 +988,7 @@ export default function Dashboard({ session }) {
                   </div>
 
                   <div className="flex items-center gap-1.5 text-sm font-bold text-[#1a2e26]">
-                    {agendaView === 'semana' ? '18 - 24 de Maio de 2024' : agendaView === 'dia' ? '15 de Maio de 2024' : 'Maio 2024'}
+                    {agendaView === 'semana' ? weekTitle : agendaView === 'dia' ? selectedDayLabel : selectedMonthLabel}
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
                   </div>
 
@@ -999,7 +1052,7 @@ export default function Dashboard({ session }) {
 
                       {/* Linha de horário atual */}
                       <div className="absolute left-[54px] right-0 h-px bg-red-400 z-20" style={{ top: `${currentTimeTop}px` }}>
-                        <span className="absolute -left-9 -top-2 text-[9px] font-bold text-red-500 bg-white pr-1">16:25</span>
+                        <span className="absolute -left-9 -top-2 text-[9px] font-bold text-red-500 bg-white pr-1">{currentTimeLabel}</span>
                         <span className="absolute -left-1.5 -top-1.5 w-3 h-3 rounded-full bg-red-400 border-2 border-white" />
                       </div>
                     </div>
@@ -1007,7 +1060,7 @@ export default function Dashboard({ session }) {
                 ) : agendaView === 'dia' ? (
                   <div className="rounded-xl border border-[#e8ede9] overflow-hidden bg-white">
                     <div className="px-4 py-3 border-b border-[#e8ede9] text-[12px] font-bold text-[#6f8179]">
-                      Quarta-feira, 15 de Maio de 2024
+                      {new Intl.DateTimeFormat('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' }).format(selectedDate).replace(/^./, (letter) => letter.toUpperCase())}
                     </div>
                     <div className="relative pl-[54px]" style={{ height: `${agendaHours.length * hourRowHeight}px` }}>
                       <div className="absolute left-0 top-0 bottom-0 w-[54px] border-r border-[#e8ede9] bg-white">
@@ -1020,7 +1073,7 @@ export default function Dashboard({ session }) {
                       {agendaHours.map(hour => (
                         <div key={hour} className="absolute left-[54px] right-0 border-t border-[#edf1ef]" style={{ top: `${(hour - 8) * hourRowHeight}px` }} />
                       ))}
-                      {events.filter(e => e.event_date === '2024-05-15' && visibleCategories[e.category]).map(ev => {
+                      {events.filter(e => e.event_date === todayString && visibleCategories[e.category]).map(ev => {
                         const style = getCategoryStyle(ev.category)
                         const pos = getEventPosition(ev.event_time)
                         return (
@@ -1031,7 +1084,7 @@ export default function Dashboard({ session }) {
                         )
                       })}
                       <div className="absolute left-[54px] right-0 h-px bg-red-400 z-20" style={{ top: `${currentTimeTop}px` }}>
-                        <span className="absolute -left-9 -top-2 text-[9px] font-bold text-red-500 bg-white pr-1">16:25</span>
+                        <span className="absolute -left-9 -top-2 text-[9px] font-bold text-red-500 bg-white pr-1">{currentTimeLabel}</span>
                         <span className="absolute -left-1.5 -top-1.5 w-3 h-3 rounded-full bg-red-400 border-2 border-white" />
                       </div>
                     </div>
@@ -1049,7 +1102,7 @@ export default function Dashboard({ session }) {
                     <div className="grid grid-cols-7 border-t border-l border-[#e8ede9] rounded-b-xl overflow-hidden">
                       {daysInCalendar.map((item, idx) => {
                         const dayEvents = events.filter(e => e.event_date === item.fullDateString && visibleCategories[e.category])
-                        const isToday = item.dayNumber === 15 && item.isCurrentMonth
+                        const isToday = item.fullDateString === todayString
                         return (
                           <div
                             key={idx}
@@ -1521,7 +1574,7 @@ export default function Dashboard({ session }) {
             <h3 className="text-sm font-bold text-gray-800">Criar Novo Compromisso</h3>
             <form onSubmit={handleAddEvent} className="space-y-3">
               <input type="text" placeholder="Título do Evento" value={newEventTitle} onChange={(e) => setNewEventTitle(e.target.value)} className="w-full px-3 py-2 border rounded-xl text-xs outline-none" required />
-              <input type="date" min="2024-05-01" max="2024-05-31" value={newEventDate} onChange={(e) => setNewEventDate(e.target.value)} className="w-full px-3 py-2 border rounded-xl text-xs outline-none" required />
+              <input type="date" value={newEventDate} onChange={(e) => setNewEventDate(e.target.value)} className="w-full px-3 py-2 border rounded-xl text-xs outline-none" required />
               <input type="text" placeholder="Horário (Ex: 08:00)" value={newEventTime} onChange={(e) => setNewEventTime(e.target.value)} className="w-full px-3 py-2 border rounded-xl text-xs outline-none" />
               <input type="text" placeholder="Local (Ex: Sala A-203)" value={newEventLocation} onChange={(e) => setNewEventLocation(e.target.value)} className="w-full px-3 py-2 border rounded-xl text-xs outline-none" />
               <select value={newEventCategory} onChange={(e) => setNewEventCategory(e.target.value)} className="w-full px-3 py-2 border rounded-xl text-xs bg-[#fafcfb] text-gray-600 outline-none">
