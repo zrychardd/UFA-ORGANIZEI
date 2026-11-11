@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { supabase } from './supabaseClient'
+import Habits from './Habits'
 import {
   Plus, CheckCircle, Circle, Trash2, LogOut, Calendar,
   ListTodo, Home, Megaphone, LayoutGrid, BarChart, Settings,
@@ -1349,41 +1350,8 @@ export default function Dashboard({ session, isDark, toggleDark }) {
                   </div>
                 </div>
 
-                {/* Sessão Inferior (Hábitos - Mantida como o Design) */}
-                <div className="bg-white dark:bg-gray-900 border border-[#e4e9e6] dark:border-gray-800 p-6 rounded-2xl shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
-                  <div className="flex justify-between items-start mb-6">
-                    <div>
-                      <span className="text-[15px] font-bold text-[#1a2e26] dark:text-gray-100 flex items-center gap-2.5">
-                        <BarChart size={18} className="text-[#00674F]" /> Seus hábitos
-                      </span>
-                      <p className="text-[12px] text-[#8a9e94] dark:text-gray-400 mt-1">Acompanhe seus hábitos diários</p>
-                    </div>
-                    <button className="text-xs font-semibold text-[#00674F] border border-[#e4e9e6] dark:border-gray-800 rounded-xl px-4 py-2 hover:bg-[#f0f5f2] dark:hover:bg-gray-800 transition-colors shadow-sm">
-                      Ver relatório
-                    </button>
-                  </div>
-
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    {[
-                      { name: 'Estudar', percent: 40, detail: '4h de 10h', color: '#D3AF37' },
-                      { name: 'Exercícios', percent: 60, detail: '3h de 5h', color: '#00674F' },
-                      { name: 'Leitura', percent: 25, detail: '1h de 4h', color: '#D3AF37' },
-                      { name: 'Projetos', percent: 75, detail: '3h de 4h', color: '#00674F' },
-                    ].map((habit) => (
-                      <div key={habit.name} className="bg-[#fafcfb] dark:bg-gray-800 border border-[#e8ede9] dark:border-gray-800 p-4 rounded-2xl flex items-center gap-4 hover:shadow-sm transition-shadow">
-                        <div className="relative w-12 h-12 rounded-full flex items-center justify-center shrink-0">
-                          <div className="absolute inset-0 rounded-full" style={{ background: `conic-gradient(${habit.color} ${habit.percent}%, #e8f5ef 0)` }} />
-                          <div className="relative w-9 h-9 rounded-full bg-white dark:bg-gray-900 flex items-center justify-center text-[10px] font-bold text-[#5a6b63] dark:text-gray-300">{habit.percent}%</div>
-                        </div>
-                        <div className="flex flex-col">
-                          <span className="text-[13px] font-bold text-[#1a2e26] dark:text-gray-100">{habit.name}</span>
-                          <span className="text-[10px] text-gray-400 font-medium">Diário</span>
-                          <span className="text-[10px] text-gray-400">{habit.detail}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                {/* Sessão Inferior (Hábitos funcionais, salvos no Supabase) */}
+                <Habits session={session} showNotification={showNotification} />
 
               </div>
             )}
