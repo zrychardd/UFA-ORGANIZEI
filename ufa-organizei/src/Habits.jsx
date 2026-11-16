@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { Plus, X, Check, Trash2, Pencil, BarChart, Flame } from 'lucide-react'
 import { supabase } from './supabaseClient'
+import { pad2, toDateKey, formatMinutes, percentOf, isMissingTable } from './habitUtils'
 
 // ==================== CONSTANTES ====================
 const MAX_HABITS = 8
@@ -22,10 +23,6 @@ const inputCls =
   'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-xl text-xs outline-none bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 focus:border-[#00674F]'
 
 // ==================== AUXILIARES ====================
-const pad2 = (n) => String(n).padStart(2, '0')
-
-const toDateKey = (d) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`
-
 // Últimos N dias (do mais antigo para hoje), sempre no fuso local
 const lastDays = (count) => {
   const now = new Date()
@@ -34,23 +31,9 @@ const lastDays = (count) => {
   )
 }
 
-const formatMinutes = (total) => {
-  const min = Math.max(0, Math.round(total || 0))
-  const h = Math.floor(min / 60)
-  const m = min % 60
-  if (h === 0) return `${m}min`
-  if (m === 0) return `${h}h`
-  return `${h}h${pad2(m)}`
-}
-
 const weekdayShort = (d) =>
   new Intl.DateTimeFormat('pt-BR', { weekday: 'short' }).format(d).replace('.', '')
 
-const percentOf = (minutes, goal) => (goal > 0 ? Math.min(100, Math.round((minutes / goal) * 100)) : 0)
-
-// Tabela ainda não criada no Supabase (SQL não foi executado)
-const isMissingTable = (err) =>
-  ['PGRST205', '42P01'].includes(err?.code) || /schema cache|does not exist/i.test(err?.message || '')
 
 // ==================== PEÇAS VISUAIS ====================
 function Ring({ percent, color, size = 48, inner = 36, done = false }) {

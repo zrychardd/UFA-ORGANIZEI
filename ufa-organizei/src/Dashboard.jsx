@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef, lazy, Suspense } from 'react'
 import { supabase } from './supabaseClient'
 import Habits from './Habits'
 import {
@@ -9,6 +9,19 @@ import {
   X, ArrowDown, Minus, ArrowUp, BookOpen, User, Briefcase, Moon, Sun,
   Lock, Monitor, Info, KeyRound, ShieldCheck, AlertTriangle
 } from 'lucide-react'
+
+// Relatórios só é baixado quando o usuário abre a aba
+const Reports = lazy(() => import('./Reports'))
+
+// Abas exibidas na barra de navegação inferior (celular)
+const MOBILE_NAV_ITEMS = [
+  { id: 'inicio', label: 'Início', icon: Home },
+  { id: 'tarefas', label: 'Tarefas', icon: ListTodo },
+  { id: 'agenda', label: 'Agenda', icon: Calendar },
+  { id: 'noticias', label: 'Notícias', icon: Megaphone },
+  { id: 'materiais', label: 'Materiais', icon: BookOpen },
+  { id: 'relatorios', label: 'Relatórios', icon: BarChart },
+]
 
 
 const pad2 = (value) => String(value).padStart(2, '0')
@@ -149,6 +162,9 @@ export default function Dashboard({ session, isDark, toggleDark }) {
   const [openCommentsPostId, setOpenCommentsPostId] = useState(null)
   const [postCommentsMap, setPostCommentsMap] = useState({})
   const [commentInputs, setCommentInputs] = useState({})
+  // Guarda o post com comentários abertos para o canal em tempo real enxergar o valor atual
+  const openCommentsPostIdRef = useRef(null)
+  useEffect(() => { openCommentsPostIdRef.current = openCommentsPostId }, [openCommentsPostId])
 
   // Estados das Notícias
   const [news, setNews] = useState([])
@@ -205,13 +221,13 @@ export default function Dashboard({ session, isDark, toggleDark }) {
 
   // ==================== ESTADOS DE CONFIGURAÇÃO PERSISTIDOS ====================
   const [headerDisplayName, setHeaderDisplayName] = useState('Estudante')
-  const [headerEmail, setHeaderEmail] = useState(session?.user?.email || 'rychardeduardos@gmail.com')
+  const [headerEmail, setHeaderEmail] = useState(session?.user?.email || '')
 
-  const [draftFullName, setDraftFullName] = useState('Rychard Eduardo')
-  const [draftDisplayName, setDraftDisplayName] = useState('Rychard')
-  const [draftEmail, setDraftEmail] = useState(session?.user?.email || 'rychardeduardos@gmail.com')
-  const [draftCourse, setDraftCourse] = useState('Ciência e Tecnologia')
-  const [draftYear, setDraftYear] = useState('2022')
+  const [draftFullName, setDraftFullName] = useState('')
+  const [draftDisplayName, setDraftDisplayName] = useState('')
+  const [draftEmail, setDraftEmail] = useState(session?.user?.email || '')
+  const [draftCourse, setDraftCourse] = useState('')
+  const [draftYear, setDraftYear] = useState('')
 
   const [configSubTab, setConfigSubTab] = useState('Perfil')
   const [loading, setLoading] = useState(false)
@@ -235,6 +251,10 @@ export default function Dashboard({ session, isDark, toggleDark }) {
 
   const avatarInitials = headerDisplayName.slice(0, 2).toUpperCase()
 
+  // Ao trocar de aba (principalmente no celular), volta o conteúdo para o topo
+  const mainRef = useRef(null)
+  useEffect(() => { mainRef.current?.scrollTo?.({ top: 0 }) }, [activeTab])
+
   useEffect(() => {
     fetchProfile()
     fetchTasks()
@@ -254,17 +274,20 @@ export default function Dashboard({ session, isDark, toggleDark }) {
       @keyframes feedSlideUp { from { opacity: 0; transform: translateY(20px) scale(0.96); } to { opacity: 1; transform: translateY(0) scale(1); } }
     `
     if (!document.getElementById('ufa-animations')) document.head.appendChild(styleEl)
-    return () => { const el = document.getElementById('ufa-animations'); if (el) el.remove() }
 
+    // Atualizações em tempo real do feed e das notícias
     const channel = supabase
       .channel('schema-db-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'posts' }, () => { fetchPosts() })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'likes' }, () => { fetchPosts() })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'comments' }, () => { fetchPosts(); if (openCommentsPostId) fetchComments(openCommentsPostId) })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'comments' }, () => { fetchPosts(); const openId = openCommentsPostIdRef.current; if (openId) fetchComments(openId) })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'news' }, () => { fetchNews() })
       .subscribe()
 
-    return () => supabase.removeChannel(channel)
+    return () => {
+      const el = document.getElementById('ufa-animations'); if (el) el.remove()
+      supabase.removeChannel(channel)
+    }
   }, [])
 
   const fetchProfile = async () => {
@@ -282,13 +305,16 @@ export default function Dashboard({ session, isDark, toggleDark }) {
         setHeaderDisplayName(data.username || user.email.split('@')[0])
         setHeaderEmail(user.email)
 
-        setDraftFullName(data.full_name || 'Rychard Eduardo')
+        setDraftFullName(data.full_name || '')
         setDraftDisplayName(data.username || user.email.split('@')[0])
         setDraftEmail(user.email)
-        setDraftCourse(data.course || 'Ciência e Tecnologia')
-        setDraftYear(data.entry_year || '2022')
+        setDraftCourse(data.course || '')
+        setDraftYear(data.entry_year ? String(data.entry_year) : '')
       } else {
         setHeaderDisplayName(user.email.split('@')[0])
+        setHeaderEmail(user.email)
+        setDraftDisplayName(user.email.split('@')[0])
+        setDraftEmail(user.email)
       }
     } catch (err) {
       console.error(err)
@@ -308,9 +334,9 @@ export default function Dashboard({ session, isDark, toggleDark }) {
         .upsert({
           id: user.id,
           username: draftDisplayName,
-          full_name: draftFullName,
-          course: draftCourse,
-          entry_year: draftYear
+          full_name: draftFullName.trim() || null,
+          course: draftCourse.trim() || null,
+          entry_year: draftYear.trim() || null
         })
 
       if (profileError) throw profileError
@@ -332,6 +358,15 @@ export default function Dashboard({ session, isDark, toggleDark }) {
     } finally {
       setLoading(false)
     }
+  }
+
+  // "Alterar senha": envia ao e-mail da conta o link para criar uma nova senha
+  const handleChangePassword = async () => {
+    const email = session?.user?.email
+    if (!email) return
+    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin })
+    if (error) showNotification('Não foi possível enviar o link agora. Tente novamente em alguns minutos.', 'error')
+    else showNotification(`Enviamos um link para ${email}. Abra o e-mail para criar sua nova senha.`, 'info', 'Confira seu e-mail')
   }
 
   const handleDownloadMaterial = async (material) => {
@@ -847,6 +882,13 @@ export default function Dashboard({ session, isDark, toggleDark }) {
   const weekGoalTotal = weeklyGoal?.target_tasks || 7
   const weekGoalDone = Math.min(weeklyGoal?.completed_tasks || 0, weekGoalTotal)
   const weekGoalPercent = weekGoalTotal > 0 ? Math.round((weekGoalDone / weekGoalTotal) * 100) : 0
+
+  // Produtividade: % das tarefas criadas nos últimos 30 dias que já foram concluídas
+  const productivityWindowStart = addDays(new Date(), -29)
+  productivityWindowStart.setHours(0, 0, 0, 0)
+  const recentTasks = tasks.filter(task => task.created_at && new Date(task.created_at) >= productivityWindowStart)
+  const recentDoneCount = recentTasks.filter(task => task.is_completed).length
+  const productivityPercent = recentTasks.length > 0 ? Math.round((recentDoneCount / recentTasks.length) * 100) : null
   // Próximo prazo agora vem da Agenda/Calendário, não das tarefas.
   const nextDeadlineEvent = events
     .filter(event => event.event_date && event.event_date >= toLocalDateString(new Date()))
@@ -942,24 +984,24 @@ export default function Dashboard({ session, isDark, toggleDark }) {
   }
 
   return (
-    <div className="ufa-dashboard flex flex-col h-screen bg-[#F5F7F6] dark:bg-gray-950 min-h-[640px] font-sans antialiased overflow-hidden transition-colors duration-300">
+    <div className="ufa-dashboard flex flex-col h-screen h-[100dvh] bg-[#F5F7F6] dark:bg-gray-950 min-h-[640px] font-sans antialiased overflow-hidden transition-colors duration-300">
 
       {/* ==================== HEADER OFICIAL ==================== */}
-      <header className="bg-gradient-to-br from-[#003d2e] via-[#00674F] to-[#005040] px-7 h-24 flex items-center justify-between relative overflow-visible shrink-0 shadow-md z-[9999]">
+      <header className="bg-gradient-to-br from-[#003d2e] via-[#00674F] to-[#005040] px-4 md:px-7 h-16 md:h-24 flex items-center justify-between relative overflow-visible shrink-0 shadow-md z-[9999]">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_rgba(255,255,255,0.04)_1px,_transparent_1px)] bg-[size:28px_28px] pointer-events-none" />
         <div className="absolute -right-10 -top-16 w-72 h-56 rounded-full border-2 border-[rgba(211,175,55,0.25)] pointer-events-none" />
         <div className="absolute right-14 -top-24 w-80 h-72 rounded-full border border-[rgba(211,175,55,0.12)] pointer-events-none" />
 
-        <div className="flex items-center gap-4 relative z-10">
-          <div className="w-13 h-13 bg-white/10 rounded-2xl flex items-center justify-center border border-white/15 backdrop-blur-md p-2.5 shadow-inner">
-            <svg viewBox="0 0 30 30" fill="none" className="w-8 h-8">
+        <div className="flex items-center gap-3 md:gap-4 relative z-10">
+          <div className="w-10 h-10 md:w-13 md:h-13 bg-white/10 rounded-2xl flex items-center justify-center border border-white/15 backdrop-blur-md p-2 md:p-2.5 shadow-inner">
+            <svg viewBox="0 0 30 30" fill="none" className="w-6 h-6 md:w-8 md:h-8">
               <circle cx="10" cy="10" r="7" stroke="white" strokeWidth="1.8" />
               <circle cx="20" cy="10" r="7" stroke="#D3AF37" strokeWidth="1.8" />
               <circle cx="15" cy="19" r="7" stroke="white" strokeWidth="1.8" strokeOpacity="0.7" />
             </svg>
           </div>
           <div className="text-white">
-            <h1 className="text-lg font-bold tracking-wide leading-none mb-0.5">UFA ORGANIZEI</h1>
+            <h1 className="text-base md:text-lg font-bold tracking-wide leading-none mb-0.5">UFA ORGANIZEI</h1>
             <span className="text-[#D3AF37] text-xs font-medium tracking-wider">Organizador</span>
           </div>
           <div className="w-px h-10 bg-white/20 mx-1 hidden md:block" />
@@ -1052,13 +1094,13 @@ export default function Dashboard({ session, isDark, toggleDark }) {
           <button onClick={() => setActiveTab('agenda')} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium transition-all duration-200 ease-out ${activeTab === 'agenda' ? 'bg-[#00674F] text-white shadow-sm' : 'text-[#5a6b63] dark:text-gray-300 hover:bg-[#E8F5F0] hover:text-[#00674F] hover:translate-x-1 hover:shadow-sm dark:hover:bg-gray-800'}`}><Calendar size={16} /><span>Agenda</span></button>
           <button onClick={() => setActiveTab('noticias')} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium transition-all duration-200 ease-out ${activeTab === 'noticias' ? 'bg-[#00674F] text-white shadow-sm' : 'text-[#5a6b63] dark:text-gray-300 hover:bg-[#E8F5F0] hover:text-[#00674F] hover:translate-x-1 hover:shadow-sm dark:hover:bg-gray-800'}`}><Megaphone size={16} /><span>Notícias</span></button>
           <button onClick={() => setActiveTab('materiais')} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium transition-all duration-200 ease-out ${activeTab === 'materiais' ? 'bg-[#00674F] text-white shadow-sm' : 'text-[#5a6b63] dark:text-gray-300 hover:bg-[#E8F5F0] hover:text-[#00674F] hover:translate-x-1 hover:shadow-sm dark:hover:bg-gray-800'}`}><BookOpen size={16} /><span>Materiais</span></button>
-          <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs text-gray-300 cursor-not-allowed"><BarChart size={16} /><span>Relatórios</span></div>
+          <button onClick={() => setActiveTab('relatorios')} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium transition-all duration-200 ease-out ${activeTab === 'relatorios' ? 'bg-[#00674F] text-white shadow-sm' : 'text-[#5a6b63] dark:text-gray-300 hover:bg-[#E8F5F0] hover:text-[#00674F] hover:translate-x-1 hover:shadow-sm dark:hover:bg-gray-800'}`}><BarChart size={16} /><span>Relatórios</span></button>
           <div className="flex-1" />
           <div className="flex items-center gap-2 px-3 py-2 rounded-xl text-[#8a9e94] dark:text-gray-400 text-[11px] opacity-50"><ChevronLeft size={14} /><span>Recolher</span></div>
         </aside>
 
         {/* CONTEÚDO DAS ABAS */}
-        <main className="flex-1 p-[22px] flex flex-col gap-[18px] overflow-auto">
+        <main ref={mainRef} className="flex-1 min-w-0 p-3 pb-24 sm:p-[22px] sm:pb-24 md:pb-[22px] flex flex-col gap-[18px] overflow-auto">
           <div className="flex flex-col gap-4">
 
             {/* ==================== ABA INÍCIO (DESIGN PREMIUM + DADOS AO VIVO) ==================== */}
@@ -1122,9 +1164,9 @@ export default function Dashboard({ session, isDark, toggleDark }) {
                       <BarChart size={22} className="text-[#D3AF37]" />
                     </div>
                     <div className="flex flex-col">
-                      <span className="text-2xl font-bold text-[#1a2e26] dark:text-gray-100 leading-none mb-1">85%</span>
+                      <span className="text-2xl font-bold text-[#1a2e26] dark:text-gray-100 leading-none mb-1">{productivityPercent === null ? '--' : `${productivityPercent}%`}</span>
                       <span className="text-[13px] font-bold text-[#1a2e26] dark:text-gray-100">Produtividade</span>
-                      <span className="text-[11px] text-[#8a9e94] dark:text-gray-400 mt-0.5">Continue assim!</span>
+                      <span className="text-[11px] text-[#8a9e94] dark:text-gray-400 mt-0.5">{productivityPercent === null ? 'Crie tarefas para medir' : `${recentDoneCount} de ${recentTasks.length} tarefas em 30 dias`}</span>
                     </div>
                   </div>
                 </div>
@@ -1354,6 +1396,14 @@ export default function Dashboard({ session, isDark, toggleDark }) {
                 <Habits session={session} showNotification={showNotification} />
 
               </div>
+            )}
+
+
+            {/* ==================== ABA RELATÓRIOS ==================== */}
+            {activeTab === 'relatorios' && (
+              <Suspense fallback={<div className="h-40 rounded-2xl bg-white dark:bg-gray-900 border border-[#e4e9e6] dark:border-gray-800 animate-pulse" />}>
+                <Reports session={session} tasks={tasks} />
+              </Suspense>
             )}
 
 
@@ -2111,11 +2161,11 @@ export default function Dashboard({ session, isDark, toggleDark }) {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                           <label className="text-[10px] font-bold text-gray-400 block mb-1">Nome completo</label>
-                          <input type="text" value={draftFullName} onChange={(e) => setDraftFullName(e.target.value)} className="w-full px-3.5 py-2 border border-[#e4e9e6] dark:border-gray-700 rounded-xl text-xs bg-[#fafcfb] dark:bg-gray-800 text-gray-700 dark:text-gray-200 outline-none focus:border-[#00674F]" />
+                          <input type="text" value={draftFullName} placeholder="Seu nome completo" onChange={(e) => setDraftFullName(e.target.value)} className="w-full px-3.5 py-2 border border-[#e4e9e6] dark:border-gray-700 rounded-xl text-xs bg-[#fafcfb] dark:bg-gray-800 text-gray-700 dark:text-gray-200 outline-none focus:border-[#00674F]" />
                         </div>
                         <div>
                           <label className="text-[10px] font-bold text-gray-400 block mb-1">Nome de exibição</label>
-                          <input type="text" value={draftDisplayName} onChange={(e) => setDraftDisplayName(e.target.value)} className="w-full px-3.5 py-2 border border-[#e4e9e6] dark:border-gray-700 rounded-xl text-xs bg-[#fafcfb] dark:bg-gray-800 text-gray-700 dark:text-gray-200 outline-none focus:border-[#00674F]" />
+                          <input type="text" value={draftDisplayName} placeholder="Como você quer ser chamado" onChange={(e) => setDraftDisplayName(e.target.value)} className="w-full px-3.5 py-2 border border-[#e4e9e6] dark:border-gray-700 rounded-xl text-xs bg-[#fafcfb] dark:bg-gray-800 text-gray-700 dark:text-gray-200 outline-none focus:border-[#00674F]" />
                         </div>
                         <div className="md:col-span-2">
                           <label className="text-[10px] font-bold text-gray-400 block mb-1">E-mail</label>
@@ -2123,11 +2173,11 @@ export default function Dashboard({ session, isDark, toggleDark }) {
                         </div>
                         <div>
                           <label className="text-[10px] font-bold text-gray-400 block mb-1">Curso</label>
-                          <input type="text" value={draftCourse} onChange={(e) => setDraftCourse(e.target.value)} className="w-full px-3.5 py-2 border border-[#e4e9e6] dark:border-gray-700 rounded-xl text-xs bg-[#fafcfb] dark:bg-gray-800 text-gray-700 dark:text-gray-200 outline-none focus:border-[#00674F]" />
+                          <input type="text" value={draftCourse} placeholder="Ex: Ciência e Tecnologia" onChange={(e) => setDraftCourse(e.target.value)} className="w-full px-3.5 py-2 border border-[#e4e9e6] dark:border-gray-700 rounded-xl text-xs bg-[#fafcfb] dark:bg-gray-800 text-gray-700 dark:text-gray-200 outline-none focus:border-[#00674F]" />
                         </div>
                         <div>
                           <label className="text-[10px] font-bold text-gray-400 block mb-1">Ingresso</label>
-                          <input type="text" value={draftYear} onChange={(e) => setDraftYear(e.target.value)} className="w-full px-3.5 py-2 border border-[#e4e9e6] dark:border-gray-700 rounded-xl text-xs bg-[#fafcfb] dark:bg-gray-800 text-gray-700 dark:text-gray-200 outline-none focus:border-[#00674F]" />
+                          <input type="text" value={draftYear} placeholder="Ex: 2024" onChange={(e) => setDraftYear(e.target.value)} className="w-full px-3.5 py-2 border border-[#e4e9e6] dark:border-gray-700 rounded-xl text-xs bg-[#fafcfb] dark:bg-gray-800 text-gray-700 dark:text-gray-200 outline-none focus:border-[#00674F]" />
                         </div>
                       </div>
                       <div className="flex justify-end pt-3 mt-auto">
@@ -2196,7 +2246,7 @@ export default function Dashboard({ session, isDark, toggleDark }) {
                             <div className="text-[12px] font-bold text-gray-700 dark:text-gray-200">Senha atual</div>
                             <div className="text-[11px] text-[#8a9e94] dark:text-gray-400">••••••••</div>
                           </div>
-                          <button type="button" className="shrink-0 text-[11px] font-bold border border-[#e4e9e6] dark:border-gray-700 text-gray-600 dark:text-gray-300 px-3.5 py-1.5 rounded-lg hover:bg-[#fafcfb] dark:hover:bg-gray-800 transition-colors">
+                          <button type="button" onClick={handleChangePassword} className="shrink-0 text-[11px] font-bold border border-[#e4e9e6] dark:border-gray-700 text-gray-600 dark:text-gray-300 px-3.5 py-1.5 rounded-lg hover:bg-[#fafcfb] dark:hover:bg-gray-800 transition-colors">
                             Alterar senha
                           </button>
                         </div>
@@ -2267,11 +2317,34 @@ export default function Dashboard({ session, isDark, toggleDark }) {
         </main>
       </div>
 
+      {/* ==================== NAVEGAÇÃO INFERIOR (CELULAR) ==================== */}
+      <nav
+        aria-label="Navegação principal"
+        className="md:hidden shrink-0 grid grid-cols-6 bg-white dark:bg-gray-900 border-t border-[#e8ebe9] dark:border-gray-800 shadow-[0_-4px_16px_rgba(0,0,0,0.06)] pb-[env(safe-area-inset-bottom)] z-[9998]"
+      >
+        {MOBILE_NAV_ITEMS.map(({ id, label, icon: Icon }) => {
+          const active = activeTab === id
+          return (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setActiveTab(id)}
+              aria-current={active ? 'page' : undefined}
+              className={`relative flex flex-col items-center justify-center gap-0.5 pt-2 pb-1.5 text-[10px] font-semibold transition-colors ${active ? 'text-[#00674F] dark:text-emerald-300' : 'text-[#8a9e94] dark:text-gray-400'}`}
+            >
+              {active && <span className="absolute top-0 left-1/4 right-1/4 h-0.5 rounded-b-full bg-[#00674F] dark:bg-emerald-300" />}
+              <Icon size={19} />
+              <span className="truncate max-w-full px-0.5">{label}</span>
+            </button>
+          )
+        })}
+      </nav>
+
       {/* ===================== FEED FLUTUANTE ===================== */}
       {/* Botão flutuante */}
       <button
         onClick={() => setIsFeedOpen(true)}
-        className="fixed bottom-6 right-6 z-[99990] w-14 h-14 rounded-full bg-gradient-to-br from-[#00674F] to-[#004c3b] text-white shadow-[0_4px_20px_rgba(0,103,79,0.45)] hover:shadow-[0_6px_28px_rgba(0,103,79,0.6)] hover:scale-110 active:scale-95 transition-all duration-200 flex items-center justify-center"
+        className="fixed bottom-[84px] md:bottom-6 right-4 md:right-6 z-[99990] w-14 h-14 rounded-full bg-gradient-to-br from-[#00674F] to-[#004c3b] text-white shadow-[0_4px_20px_rgba(0,103,79,0.45)] hover:shadow-[0_6px_28px_rgba(0,103,79,0.6)] hover:scale-110 active:scale-95 transition-all duration-200 flex items-center justify-center"
         title="Feed Central da UFA"
       >
         <Megaphone size={22} />
@@ -2285,7 +2358,7 @@ export default function Dashboard({ session, isDark, toggleDark }) {
       {/* Painel flutuante */}
       {isFeedOpen && (
         <div
-          className="fixed bottom-[88px] right-6 z-[99990] w-[420px] max-w-[calc(100vw-20px)] flex flex-col rounded-2xl shadow-[0_8px_40px_rgba(0,0,0,0.18)] overflow-hidden border border-[#e4e9e6] dark:border-gray-800"
+          className="fixed bottom-[148px] md:bottom-[88px] right-3 md:right-6 z-[99990] w-[420px] max-w-[calc(100vw-24px)] max-h-[calc(100dvh-230px)] md:max-h-none flex flex-col rounded-2xl shadow-[0_8px_40px_rgba(0,0,0,0.18)] overflow-hidden border border-[#e4e9e6] dark:border-gray-800"
           style={{
             height: 'min(650px, 80vh)',
             animation: 'feedSlideUp 0.25s cubic-bezier(0.34,1.4,0.64,1)',

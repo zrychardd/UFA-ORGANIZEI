@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { supabase } from './supabaseClient'
 import {
   Lock,
@@ -14,7 +14,7 @@ import {
   Sparkles
 } from 'lucide-react'
 
-function UfaLogo({ className = 'w-16 h-16' }) {
+export function UfaLogo({ className = 'w-16 h-16' }) {
   return (
     <svg className={className} viewBox="0 0 58 58" fill="none" xmlns="http://www.w3.org/2000/svg">
       <path d="M10 6 H36 L46 16 V50 Q46 54 42 54 H10 Q6 54 6 50 V10 Q6 6 10 6 Z" fill="none" stroke="currentColor" strokeWidth="3" strokeLinejoin="round" />
@@ -33,6 +33,8 @@ function UfaLogo({ className = 'w-16 h-16' }) {
 
 export default function Auth({ onLoginSuccess, isDark, toggleDark }) {
   const [isSignUp, setIsSignUp] = useState(false)
+  const [isForgot, setIsForgot] = useState(false)
+  const [cooldown, setCooldown] = useState(0) // segundos até poder pedir outro link de recuperação
   const [loading, setLoading] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -67,8 +69,19 @@ export default function Auth({ onLoginSuccess, isDark, toggleDark }) {
       return 'O cadastro está temporariamente desativado.'
     }
 
+    if (message.includes('only request this after') || message.includes('for security purposes')) {
+      return 'Por segurança, aguarde alguns segundos antes de pedir outro link.'
+    }
+
     return 'Não foi possível concluir a ação. Verifique os dados e tente novamente.'
   }
+
+  // Contagem regressiva do botão "Reenviar"
+  useEffect(() => {
+    if (cooldown <= 0) return
+    const timer = setTimeout(() => setCooldown(c => c - 1), 1000)
+    return () => clearTimeout(timer)
+  }, [cooldown])
 
   const handleAuth = async (e) => {
     e.preventDefault()
@@ -106,6 +119,33 @@ export default function Auth({ onLoginSuccess, isDark, toggleDark }) {
 
         if (data?.user) onLoginSuccess(data.user)
       }
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Envia o e-mail de recuperação de senha. A resposta é sempre a mesma, exista a conta ou não
+  const handleForgot = async (e) => {
+    e.preventDefault()
+    if (cooldown > 0) return
+    setLoading(true)
+    setMessage({ type: '', text: '' })
+
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: window.location.origin
+      })
+
+      if (error) {
+        setMessage({ type: 'error', text: getFriendlyErrorMessage(error.message) })
+        return
+      }
+
+      setMessage({
+        type: 'success',
+        text: 'Se existir uma conta com esse e-mail, enviamos um link para criar uma nova senha. Confira também a caixa de spam.'
+      })
+      setCooldown(30)
     } finally {
       setLoading(false)
     }
@@ -186,7 +226,7 @@ export default function Auth({ onLoginSuccess, isDark, toggleDark }) {
                 <Sparkles size={16} className="text-[#D3AF37]" />
               </div>
               <p className={`text-[13px] mt-1 ${isDark ? 'text-white/60' : 'text-[#8a9e94]'}`}>
-                {isSignUp ? 'Crie sua conta acadêmica' : 'Acesse seu painel acadêmico'}
+                {isForgot ? 'Recupere o acesso à sua conta' : isSignUp ? 'Crie sua conta acadêmica' : 'Acesse seu painel acadêmico'}
               </p>
             </div>
 
@@ -199,7 +239,7 @@ export default function Auth({ onLoginSuccess, isDark, toggleDark }) {
               </div>
             )}
 
-            <form onSubmit={handleAuth} className="flex flex-col gap-4">
+            <form onSubmit={isForgot ? handleForgot : handleAuth} className="flex flex-col gap-4">
               {isSignUp && (
                 <div>
                   <label className={labelClass}>Nome completo</label>
@@ -232,6 +272,7 @@ export default function Auth({ onLoginSuccess, isDark, toggleDark }) {
                 </div>
               </div>
 
+              {!isForgot && (
               <div>
                 <label className={labelClass}>Senha</label>
                 <div className="relative">
@@ -254,27 +295,41 @@ export default function Auth({ onLoginSuccess, isDark, toggleDark }) {
                   </button>
                 </div>
               </div>
+              )}
+
+              {!isSignUp && !isForgot && (
+                <div className="flex justify-end -mt-2">
+                  <button
+                    type="button"
+                    onClick={() => { setIsForgot(true); setMessage({ type: '', text: '' }) }}
+                    className="text-[12px] font-semibold transition-opacity hover:opacity-75"
+                    style={{ color: isDark ? '#D3AF37' : '#00674F' }}
+                  >
+                    Esqueceu a senha?
+                  </button>
+                </div>
+              )}
 
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || (isForgot && cooldown > 0)}
                 className="w-full py-[12px] rounded-xl text-white text-[14px] font-semibold mt-1 transition-all disabled:opacity-60 hover:-translate-y-0.5 active:translate-y-0 shadow-lg"
                 style={{ background: isDark ? 'linear-gradient(135deg,#00a67d,#00674F)' : 'linear-gradient(135deg,#00674F,#004d3a)' }}
               >
-                {loading ? 'Carregando...' : isSignUp ? 'Criar conta' : 'Entrar'}
+                {loading ? 'Carregando...' : isForgot ? (cooldown > 0 ? `Reenviar em ${cooldown}s` : 'Enviar link de recuperação') : isSignUp ? 'Criar conta' : 'Entrar'}
               </button>
             </form>
 
             <div className={`text-center mt-6 pt-5 text-[13px] border-t ${isDark ? 'border-white/10' : 'border-[#eef2ef]'}`}>
               <span className={isDark ? 'text-white/55' : 'text-[#8a9e94]'}>
-                {isSignUp ? 'Já tem uma conta? ' : 'Novo por aqui? '}
+                {isForgot ? 'Lembrou a senha? ' : isSignUp ? 'Já tem uma conta? ' : 'Novo por aqui? '}
               </span>
               <button
-                onClick={() => { setIsSignUp(p => !p); setMessage({ type: '', text: '' }) }}
+                onClick={() => { if (isForgot) setIsForgot(false); else setIsSignUp(p => !p); setMessage({ type: '', text: '' }) }}
                 className="font-semibold transition-opacity hover:opacity-75"
                 style={{ color: '#D3AF37' }}
               >
-                {isSignUp ? 'Faça login' : 'Cadastre-se gratuito'}
+                {isForgot ? 'Voltar ao login' : isSignUp ? 'Faça login' : 'Cadastre-se gratuito'}
               </button>
             </div>
           </div>
