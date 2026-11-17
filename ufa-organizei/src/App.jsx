@@ -1,5 +1,6 @@
 import React, { useState, useEffect, lazy, Suspense } from 'react'
 import { supabase } from './supabaseClient'
+import { useServiceWorkerUpdate } from './pwa'
 
 // Cada tela vira um arquivo separado, baixado só quando necessário
 // (quem só abre a página inicial não baixa o painel inteiro).
@@ -30,7 +31,7 @@ function Splash() {
   )
 }
 
-export default function App() {
+function AppContent() {
   const [session, setSession] = useState(null)
   const [showAuth, setShowAuth] = useState(false)
   const [recovery, setRecovery] = useState(detectRecoveryFromUrl) // null | 'ok' | 'error'
@@ -122,5 +123,50 @@ export default function App() {
     <Suspense fallback={<Splash />}>
       <Dashboard session={session} isDark={isDark} toggleDark={toggleDark} />
     </Suspense>
+  )
+}
+
+// Aviso discreto quando há uma versão nova do app esperando para ser ativada
+function UpdateBanner() {
+  const { updateReady, applyUpdate } = useServiceWorkerUpdate()
+  if (!updateReady) return null
+  return (
+    <div
+      role="status"
+      className="fixed left-1/2 -translate-x-1/2 bottom-20 md:bottom-5 z-[100001] flex items-center gap-3 bg-[#1a2e26] text-white text-xs font-medium pl-4 pr-2 py-2 rounded-full shadow-[0_12px_40px_rgba(0,0,0,0.3)]"
+    >
+      Nova versão disponível
+      <button type="button" onClick={applyUpdate} className="bg-[#D3AF37] hover:bg-[#c29f2e] text-[#1a2e26] font-bold px-3.5 py-1.5 rounded-full transition-colors">
+        Atualizar
+      </button>
+    </div>
+  )
+}
+
+// Mostra uma confirmação depois que o usuário exclui a conta (o painel já foi fechado nesse momento)
+function AccountDeletedBanner() {
+  const [open, setOpen] = useState(() => sessionStorage.getItem('ufa-account-deleted') === '1')
+  if (!open) return null
+
+  const close = () => {
+    sessionStorage.removeItem('ufa-account-deleted')
+    setOpen(false)
+  }
+
+  return (
+    <div role="status" className="fixed top-4 left-1/2 -translate-x-1/2 z-[100001] max-w-[calc(100vw-24px)] flex items-center gap-3 bg-white dark:bg-gray-900 text-[#1a2e26] dark:text-gray-100 border border-[#e4e9e6] dark:border-gray-700 text-xs font-medium pl-4 pr-2 py-2 rounded-2xl shadow-[0_12px_40px_rgba(0,0,0,0.2)]">
+      Sua conta e todos os seus dados foram excluídos.
+      <button type="button" onClick={close} className="bg-[#00674F] hover:bg-[#005240] text-white font-bold px-3.5 py-1.5 rounded-xl transition-colors">Fechar</button>
+    </div>
+  )
+}
+
+export default function App() {
+  return (
+    <>
+      <AppContent />
+      <UpdateBanner />
+      <AccountDeletedBanner />
+    </>
   )
 }

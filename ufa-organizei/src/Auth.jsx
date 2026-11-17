@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { supabase } from './supabaseClient'
+import LegalModal, { TERMS_VERSION } from './Legal'
 import {
   Lock,
   Mail,
@@ -34,6 +35,8 @@ export function UfaLogo({ className = 'w-16 h-16' }) {
 export default function Auth({ onLoginSuccess, isDark, toggleDark }) {
   const [isSignUp, setIsSignUp] = useState(false)
   const [isForgot, setIsForgot] = useState(false)
+  const [acceptedTerms, setAcceptedTerms] = useState(false)
+  const [legalDoc, setLegalDoc] = useState(null) // null | 'terms' | 'privacy'
   const [cooldown, setCooldown] = useState(0) // segundos até poder pedir outro link de recuperação
   const [loading, setLoading] = useState(false)
   const [email, setEmail] = useState('')
@@ -90,10 +93,29 @@ export default function Auth({ onLoginSuccess, isDark, toggleDark }) {
 
     try {
       if (isSignUp) {
-        const { data, error } = await supabase.auth.signUp({ email, password })
+        if (!acceptedTerms) {
+          setMessage({ type: 'error', text: 'Para criar a conta, aceite os Termos de Uso e a Política de Privacidade.' })
+          return
+        }
+
+        // O nome de usuário e o aceite dos termos ficam também nos dados da conta: assim o perfil
+        // ainda pode ser criado no primeiro acesso quando o projeto exige confirmação por e-mail.
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: { data: { username, accepted_terms_at: new Date().toISOString(), terms_version: TERMS_VERSION } }
+        })
 
         if (error) {
           setMessage({ type: 'error', text: getFriendlyErrorMessage(error.message) })
+          return
+        }
+
+        if (data?.user && !data.session) {
+          // Confirmação por e-mail ativada: ainda não há sessão, então o perfil é criado no primeiro acesso
+          setMessage({ type: 'success', text: `Conta criada! Enviamos um e-mail de confirmação para ${email}. Abra o link para ativar a conta e depois entre.` })
+          setIsSignUp(false)
+          setAcceptedTerms(false)
           return
         }
 
@@ -310,6 +332,24 @@ export default function Auth({ onLoginSuccess, isDark, toggleDark }) {
                 </div>
               )}
 
+              {isSignUp && (
+                <label className={`flex items-start gap-2.5 text-[12px] leading-snug cursor-pointer ${isDark ? 'text-white/75' : 'text-[#5a6b63]'}`}>
+                  <input
+                    type="checkbox"
+                    checked={acceptedTerms}
+                    onChange={(e) => setAcceptedTerms(e.target.checked)}
+                    required
+                    className="mt-0.5 w-4 h-4 shrink-0 accent-[#00674F]"
+                  />
+                  <span>
+                    Li e aceito os{' '}
+                    <button type="button" onClick={() => setLegalDoc('terms')} className="font-semibold underline underline-offset-2" style={{ color: isDark ? '#D3AF37' : '#00674F' }}>Termos de Uso</button>
+                    {' '}e a{' '}
+                    <button type="button" onClick={() => setLegalDoc('privacy')} className="font-semibold underline underline-offset-2" style={{ color: isDark ? '#D3AF37' : '#00674F' }}>Política de Privacidade</button>.
+                  </span>
+                </label>
+              )}
+
               <button
                 type="submit"
                 disabled={loading || (isForgot && cooldown > 0)}
@@ -350,6 +390,8 @@ export default function Auth({ onLoginSuccess, isDark, toggleDark }) {
           ))}
         </div>
       </main>
+
+      {legalDoc && <LegalModal initialDoc={legalDoc} onClose={() => setLegalDoc(null)} />}
     </div>
   )
 }

@@ -1,6 +1,7 @@
 import dashboardImg from './assets/PrtSc/Dashboard.png'
 
 import React, { useEffect, useRef, useState } from 'react'
+import LegalModal from './Legal'
 import { motion, useScroll, useTransform, useInView, AnimatePresence } from 'framer-motion'
 import { ArrowRight, CalendarCheck, BookOpen, Newspaper, Flame, Target, CheckSquare, Shield, Zap, Cloud, Lock, ChevronDown, LogIn } from 'lucide-react'
 /* ── Logo ───────────────────────────────────────────────── */
@@ -65,6 +66,7 @@ function FeatureCard({ icon: Icon, title, text, delay }) {
 
 /* ── Main Component ─────────────────────────────────────── */
 export default function LandingPage({ onAccessApp }) {
+    const [legalDoc, setLegalDoc] = useState(null) // termos/privacidade abertos pelo rodapé
     const [scrolled, setScrolled] = useState(false)
 
     useEffect(() => {
@@ -329,11 +331,16 @@ export default function LandingPage({ onAccessApp }) {
                         </div>
                     </div>
 
-                    <p className="text-xs text-white/60">© 2025 UFA ORGANIZEI. Todos os direitos reservados.</p>
+                    <p className="text-xs text-white/60">© {new Date().getFullYear()} UFA ORGANIZEI. Todos os direitos reservados.</p>
 
-                    <div className="flex items-center gap-4 text-white/70" />
+                    <div className="flex items-center gap-4 text-xs text-white/70">
+                        <button type="button" onClick={() => setLegalDoc('terms')} className="hover:text-white underline-offset-2 hover:underline transition-colors">Termos de Uso</button>
+                        <button type="button" onClick={() => setLegalDoc('privacy')} className="hover:text-white underline-offset-2 hover:underline transition-colors">Privacidade</button>
+                    </div>
                 </div>
             </footer>
+
+            {legalDoc && <LegalModal initialDoc={legalDoc} onClose={() => setLegalDoc(null)} />}
         </div>
     )
 }

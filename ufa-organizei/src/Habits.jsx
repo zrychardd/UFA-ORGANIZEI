@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
-import { createPortal } from 'react-dom'
 import { Plus, X, Check, Trash2, Pencil, BarChart, Flame } from 'lucide-react'
 import { supabase } from './supabaseClient'
+import Modal from './Modal'
 import { pad2, toDateKey, formatMinutes, percentOf, isMissingTable } from './habitUtils'
 
 // ==================== CONSTANTES ====================
@@ -47,32 +47,6 @@ function Ring({ percent, color, size = 48, inner = 36, done = false }) {
         {done ? <Check size={size >= 60 ? 20 : 14} strokeWidth={3} style={{ color }} /> : `${percent}%`}
       </div>
     </div>
-  )
-}
-
-// Os modais usam portal para ficarem acima do header e fora de qualquer container com transform
-function Modal({ children, onClose, maxWidth = 'max-w-md' }) {
-  useEffect(() => {
-    const onKey = (e) => { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
-
-  return createPortal(
-    <div
-      className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[99999] p-4"
-      style={{ animation: 'fadeIn 0.18s ease' }}
-      onClick={onClose}
-    >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className={`bg-white dark:bg-gray-900 rounded-2xl w-full ${maxWidth} p-6 shadow-xl border border-gray-100 dark:border-gray-800 max-h-[90vh] overflow-y-auto`}
-        style={{ animation: 'slideUpModal 0.22s cubic-bezier(0.34,1.56,0.64,1)' }}
-      >
-        {children}
-      </div>
-    </div>,
-    document.body
   )
 }
 

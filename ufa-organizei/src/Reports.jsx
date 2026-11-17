@@ -24,13 +24,13 @@ function StatCard({ icon: Icon, tone, value, label, hint }) {
     red: 'bg-red-50 text-red-500',
   }
   return (
-    <div className={`${cardCls} p-5 flex items-center gap-4`}>
-      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${tones[tone]}`}>
+    <div className={`${cardCls} p-4 sm:p-5 flex items-center gap-4`}>
+      <div className={`hidden sm:flex w-12 h-12 rounded-2xl items-center justify-center shrink-0 ${tones[tone]}`}>
         <Icon size={22} />
       </div>
       <div className="flex flex-col min-w-0">
-        <span className="text-2xl font-bold text-[#1a2e26] dark:text-gray-100 leading-none mb-1">{value}</span>
-        <span className="text-[13px] font-bold text-[#1a2e26] dark:text-gray-100">{label}</span>
+        <span className="text-xl sm:text-2xl font-bold text-[#1a2e26] dark:text-gray-100 leading-none mb-1">{value}</span>
+        <span className="text-xs sm:text-[13px] font-bold text-[#1a2e26] dark:text-gray-100">{label}</span>
         <span className="text-[11px] text-[#8a9e94] dark:text-gray-400 mt-0.5">{hint}</span>
       </div>
     </div>
@@ -177,7 +177,7 @@ export default function Reports({ session, tasks = [] }) {
       </div>
 
       {/* Resumo */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <StatCard icon={ListTodo} tone="green" value={`${taskStats.done}/${taskStats.total}`} label="Tarefas concluídas" hint={taskStats.total === 0 ? 'Sem tarefas neste mês' : `${taskStats.rate}% de conclusão`} />
         <StatCard icon={Clock} tone="red" value={taskStats.overdue} label="Tarefas atrasadas" hint={taskStats.overdue === 0 ? 'Nenhuma pendência vencida' : 'Pendentes com prazo vencido'} />
         <StatCard icon={BarChart} tone="gold" value={habitsReady ? formatMinutes(habitStats.totalMinutes) : '--'} label="Tempo em hábitos" hint={habitsReady ? `${habitStats.activeDays} ${habitStats.activeDays === 1 ? 'dia ativo' : 'dias ativos'}` : 'Carregando...'} />

@@ -1,23 +1,40 @@
 import React, { useState, useEffect, useRef, lazy, Suspense } from 'react'
 import { supabase } from './supabaseClient'
 import Habits from './Habits'
+import LegalModal from './Legal'
+import { ConfirmDialog, DeleteAccountDialog, ReportPostDialog } from './Dialogs'
+import { buildReminders, urgentReminders, reminderLabel, getReminderPref, setReminderPref, enableReminders, maybeNotifyDaily } from './reminders'
+import { useInstallApp } from './pwa'
 import {
   Plus, CheckCircle, Circle, Trash2, LogOut, Calendar,
   ListTodo, Home, Megaphone, LayoutGrid, BarChart, Settings,
   ChevronLeft, ChevronDown, Check, Bell, Award, Flame, MapPin,
-  Clock, Camera, ToggleRight, Search, Send, SlidersHorizontal,
+  Clock, ToggleRight, Search, Send, SlidersHorizontal,
   X, ArrowDown, Minus, ArrowUp, BookOpen, User, Briefcase, Moon, Sun,
-  Lock, Monitor, Info, KeyRound, ShieldCheck, AlertTriangle
+  Lock, Monitor, Info, KeyRound, ShieldCheck, AlertTriangle, GraduationCap, Download, Flag
 } from 'lucide-react'
 
 // Relatórios só é baixado quando o usuário abre a aba
 const Reports = lazy(() => import('./Reports'))
+const Courses = lazy(() => import('./Courses'))
+
+// Abas válidas (usadas para abrir direto numa aba por link: /?tab=tarefas)
+const VALID_TABS = ['inicio', 'tarefas', 'agenda', 'disciplinas', 'noticias', 'materiais', 'relatorios', 'configuracoes']
+const initialTabFromUrl = () => {
+  try {
+    const tab = new URLSearchParams(window.location.search).get('tab')
+    return VALID_TABS.includes(tab) ? tab : 'inicio'
+  } catch {
+    return 'inicio'
+  }
+}
 
 // Abas exibidas na barra de navegação inferior (celular)
 const MOBILE_NAV_ITEMS = [
   { id: 'inicio', label: 'Início', icon: Home },
   { id: 'tarefas', label: 'Tarefas', icon: ListTodo },
   { id: 'agenda', label: 'Agenda', icon: Calendar },
+  { id: 'disciplinas', label: 'Disciplinas', icon: GraduationCap },
   { id: 'noticias', label: 'Notícias', icon: Megaphone },
   { id: 'materiais', label: 'Materiais', icon: BookOpen },
   { id: 'relatorios', label: 'Relatórios', icon: BarChart },
@@ -129,9 +146,19 @@ const getCalendarDays = (baseDate) => {
 
 export default function Dashboard({ session, isDark, toggleDark }) {
   // Estado de Navigation das Abas
-  const [activeTab, setActiveTab] = useState('inicio')
+  const [activeTab, setActiveTab] = useState(initialTabFromUrl)
   const [isFeedOpen, setIsFeedOpen] = useState(false)
   const [showUserMenu, setShowUserMenu] = useState(false)
+  const [showReminders, setShowReminders] = useState(false)
+  const [showLegal, setShowLegal] = useState(false)
+  const [sessionsDialog, setSessionsDialog] = useState(false)
+  const [deleteDialog, setDeleteDialog] = useState(false)
+  const [accountBusy, setAccountBusy] = useState(false)
+  const [postMenuId, setPostMenuId] = useState(null)
+  const [postToDelete, setPostToDelete] = useState(null)
+  const [reportTarget, setReportTarget] = useState(null)
+  const [reportedIds, setReportedIds] = useState(() => new Set())
+  const installApp = useInstallApp()
 
   // Estados das Tarefas
   const [tasks, setTasks] = useState([])
@@ -246,7 +273,7 @@ export default function Dashboard({ session, isDark, toggleDark }) {
 
   // Preferências da conta (UI local, não persistidas no banco)
   const [prefEmailNotifications, setPrefEmailNotifications] = useState(true)
-  const [prefTaskReminders, setPrefTaskReminders] = useState(true)
+  const [prefTaskReminders, setPrefTaskReminders] = useState(() => getReminderPref())
   const [prefWeeklySummary, setPrefWeeklySummary] = useState(true)
 
   const avatarInitials = headerDisplayName.slice(0, 2).toUpperCase()
@@ -254,6 +281,27 @@ export default function Dashboard({ session, isDark, toggleDark }) {
   // Ao trocar de aba (principalmente no celular), volta o conteúdo para o topo
   const mainRef = useRef(null)
   useEffect(() => { mainRef.current?.scrollTo?.({ top: 0 }) }, [activeTab])
+
+  // Denúncias já feitas por este usuário (esses posts ficam escondidos só para ele)
+  useEffect(() => {
+    const userId = session?.user?.id
+    if (!userId) return
+    let cancelled = false
+    supabase.from('post_reports').select('post_id').eq('reporter_id', userId).then(({ data, error }) => {
+      if (!cancelled && !error && data) setReportedIds(new Set(data.map(row => row.post_id)))
+    })
+    return () => { cancelled = true }
+  }, [session?.user?.id])
+
+  // Tocar numa notificação de lembrete abre a aba indicada
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) return
+    const onMessage = (event) => {
+      if (event.data?.type === 'OPEN_TAB' && VALID_TABS.includes(event.data.tab)) setActiveTab(event.data.tab)
+    }
+    navigator.serviceWorker.addEventListener('message', onMessage)
+    return () => navigator.serviceWorker.removeEventListener('message', onMessage)
+  }, [])
 
   useEffect(() => {
     fetchProfile()
@@ -311,10 +359,16 @@ export default function Dashboard({ session, isDark, toggleDark }) {
         setDraftCourse(data.course || '')
         setDraftYear(data.entry_year ? String(data.entry_year) : '')
       } else {
-        setHeaderDisplayName(user.email.split('@')[0])
+        const fallbackName = user.user_metadata?.username || user.email.split('@')[0]
+        setHeaderDisplayName(fallbackName)
         setHeaderEmail(user.email)
-        setDraftDisplayName(user.email.split('@')[0])
+        setDraftDisplayName(fallbackName)
         setDraftEmail(user.email)
+
+        // Quem se cadastra com confirmação por e-mail ainda não tem perfil no primeiro acesso: cria agora
+        if (error?.code === 'PGRST116' && user.user_metadata?.username) {
+          await supabase.from('profiles').upsert([{ id: user.id, username: user.user_metadata.username }])
+        }
       }
     } catch (err) {
       console.error(err)
@@ -367,6 +421,108 @@ export default function Dashboard({ session, isDark, toggleDark }) {
     const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin })
     if (error) showNotification('Não foi possível enviar o link agora. Tente novamente em alguns minutos.', 'error')
     else showNotification(`Enviamos um link para ${email}. Abra o e-mail para criar sua nova senha.`, 'info', 'Confira seu e-mail')
+  }
+
+  const handleDeletePost = async () => {
+    const post = postToDelete
+    if (!post) return
+    setAccountBusy(true)
+    // curtidas e comentários primeiro, caso o banco não apague em cascata
+    await supabase.from('likes').delete().eq('post_id', post.id)
+    await supabase.from('comments').delete().eq('post_id', post.id)
+    const { error } = await supabase.from('posts').delete().eq('id', post.id).eq('user_id', session.user.id)
+    setAccountBusy(false)
+    setPostToDelete(null)
+    if (error) {
+      console.error('Erro ao excluir post:', error.message)
+      showNotification('Não foi possível excluir a publicação. Rode o arquivo supabase-seguranca.sql no Supabase e tente de novo.', 'error')
+      return
+    }
+    setPosts(prev => prev.filter(item => item.id !== post.id))
+  }
+
+  const handleReportPost = async ({ reason, details }) => {
+    const post = reportTarget
+    if (!post) return
+    setAccountBusy(true)
+    const { error } = await supabase.from('post_reports').insert([{ post_id: post.id, reporter_id: session.user.id, reason, details: details || null }])
+    setAccountBusy(false)
+    // 23505 = já denunciada por este usuário: trata como sucesso
+    if (error && error.code !== '23505') {
+      console.error('Erro ao denunciar:', error.message)
+      showNotification('Não foi possível enviar a denúncia agora. Rode o arquivo supabase-seguranca.sql no Supabase e tente de novo.', 'error')
+      return
+    }
+    setReportedIds(prev => new Set(prev).add(post.id))
+    setReportTarget(null)
+    showNotification('Obrigado por avisar. Vamos analisar a publicação, e ela não aparecerá mais para você.', 'success', 'Denúncia enviada')
+  }
+
+  const handleSignOutOthers = async () => {
+    setAccountBusy(true)
+    const { error } = await supabase.auth.signOut({ scope: 'others' })
+    setAccountBusy(false)
+    setSessionsDialog(false)
+    if (error) showNotification('Não foi possível encerrar as outras sessões agora. Tente novamente.', 'error')
+    else showNotification('Pronto! Sua conta foi desconectada dos outros dispositivos. Este continua conectado.', 'success', 'Sessões encerradas')
+  }
+
+  const handleDeleteAccount = async () => {
+    setAccountBusy(true)
+    try {
+      // 1) Arquivos: o banco não consegue apagar arquivos do Storage sozinho
+      const { data: files } = await supabase.from('task_attachments').select('storage_path').eq('user_id', session.user.id)
+      const paths = (files || []).map(file => file.storage_path).filter(Boolean)
+      for (let i = 0; i < paths.length; i += 100) {
+        await supabase.storage.from('task-attachments').remove(paths.slice(i, i + 100))
+      }
+
+      // 2) Dados e conta de login
+      const { error } = await supabase.rpc('delete_my_account')
+      if (error) throw error
+
+      sessionStorage.setItem('ufa-account-deleted', '1')
+      await supabase.auth.signOut()
+    } catch (err) {
+      console.error('Erro ao excluir conta:', err)
+      setAccountBusy(false)
+      setDeleteDialog(false)
+      const missingFunction = err?.code === 'PGRST202' || /delete_my_account/i.test(err?.message || '')
+      showNotification(
+        missingFunction
+          ? 'A exclusão de conta ainda não foi liberada. Rode o arquivo supabase-seguranca.sql no Supabase e tente de novo.'
+          : 'Não foi possível excluir a conta agora. Tente novamente em alguns minutos.',
+        'error'
+      )
+    }
+  }
+
+  // Liga/desliga o resumo diário dos prazos nas notificações do navegador
+  const handleToggleReminders = async () => {
+    if (prefTaskReminders) {
+      setReminderPref(false)
+      setPrefTaskReminders(false)
+      return
+    }
+    const result = await enableReminders()
+    if (result === 'granted') {
+      setPrefTaskReminders(true)
+      maybeNotifyDaily(reminders)
+      showNotification('Quando você abrir o app, mostramos um resumo dos prazos do dia (uma vez por dia).', 'success', 'Lembretes ativados')
+    } else if (result === 'denied') {
+      showNotification('O navegador bloqueou as notificações. Libere nas configurações do site para ativar os lembretes.', 'error', 'Permissão negada')
+    } else {
+      showNotification('Este navegador não oferece notificações. No iPhone, instale o app na tela inicial primeiro.', 'info', 'Sem suporte')
+    }
+  }
+
+  const handleInstallApp = async () => {
+    setShowUserMenu(false)
+    if (installApp.canInstall) {
+      await installApp.promptInstall()
+    } else {
+      showNotification('Toque no botão Compartilhar do Safari e escolha "Adicionar à Tela de Início".', 'info', 'Instalar no iPhone')
+    }
   }
 
   const handleDownloadMaterial = async (material) => {
@@ -889,6 +1045,14 @@ export default function Dashboard({ session, isDark, toggleDark }) {
   const recentTasks = tasks.filter(task => task.created_at && new Date(task.created_at) >= productivityWindowStart)
   const recentDoneCount = recentTasks.filter(task => task.is_completed).length
   const productivityPercent = recentTasks.length > 0 ? Math.round((recentDoneCount / recentTasks.length) * 100) : null
+
+  // Posts que o usuário já denunciou ficam escondidos só para ele
+  const visiblePosts = posts.filter(post => !reportedIds.has(post.id))
+
+  // Lembretes: tarefas atrasadas/próximas do prazo e eventos dos próximos dias
+  const reminders = buildReminders({ tasks, events })
+  const urgentCount = urgentReminders(reminders).length
+  useEffect(() => { maybeNotifyDaily(buildReminders({ tasks, events })) }, [tasks, events])
   // Próximo prazo agora vem da Agenda/Calendário, não das tarefas.
   const nextDeadlineEvent = events
     .filter(event => event.event_date && event.event_date >= toLocalDateString(new Date()))
@@ -987,13 +1151,13 @@ export default function Dashboard({ session, isDark, toggleDark }) {
     <div className="ufa-dashboard flex flex-col h-screen h-[100dvh] bg-[#F5F7F6] dark:bg-gray-950 min-h-[640px] font-sans antialiased overflow-hidden transition-colors duration-300">
 
       {/* ==================== HEADER OFICIAL ==================== */}
-      <header className="bg-gradient-to-br from-[#003d2e] via-[#00674F] to-[#005040] px-4 md:px-7 h-16 md:h-24 flex items-center justify-between relative overflow-visible shrink-0 shadow-md z-[9999]">
+      <header className="bg-gradient-to-br from-[#003d2e] via-[#00674F] to-[#005040] px-3 min-[400px]:px-4 md:px-7 h-16 md:h-24 flex items-center justify-between relative overflow-visible shrink-0 shadow-md z-[9999]">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_rgba(255,255,255,0.04)_1px,_transparent_1px)] bg-[size:28px_28px] pointer-events-none" />
         <div className="absolute -right-10 -top-16 w-72 h-56 rounded-full border-2 border-[rgba(211,175,55,0.25)] pointer-events-none" />
         <div className="absolute right-14 -top-24 w-80 h-72 rounded-full border border-[rgba(211,175,55,0.12)] pointer-events-none" />
 
-        <div className="flex items-center gap-3 md:gap-4 relative z-10">
-          <div className="w-10 h-10 md:w-13 md:h-13 bg-white/10 rounded-2xl flex items-center justify-center border border-white/15 backdrop-blur-md p-2 md:p-2.5 shadow-inner">
+        <div className="flex items-center gap-2 min-[400px]:gap-3 md:gap-4 relative z-10 min-w-0">
+          <div className="w-9 h-9 min-[400px]:w-10 min-[400px]:h-10 md:w-13 md:h-13 shrink-0 bg-white/10 rounded-2xl flex items-center justify-center border border-white/15 backdrop-blur-md p-2 md:p-2.5 shadow-inner">
             <svg viewBox="0 0 30 30" fill="none" className="w-6 h-6 md:w-8 md:h-8">
               <circle cx="10" cy="10" r="7" stroke="white" strokeWidth="1.8" />
               <circle cx="20" cy="10" r="7" stroke="#D3AF37" strokeWidth="1.8" />
@@ -1001,7 +1165,7 @@ export default function Dashboard({ session, isDark, toggleDark }) {
             </svg>
           </div>
           <div className="text-white">
-            <h1 className="text-base md:text-lg font-bold tracking-wide leading-none mb-0.5">UFA ORGANIZEI</h1>
+            <h1 className="text-sm min-[400px]:text-base md:text-lg font-bold tracking-normal min-[400px]:tracking-wide whitespace-nowrap leading-none mb-0.5">UFA ORGANIZEI</h1>
             <span className="text-[#D3AF37] text-xs font-medium tracking-wider">Organizador</span>
           </div>
           <div className="w-px h-10 bg-white/20 mx-1 hidden md:block" />
@@ -1011,10 +1175,62 @@ export default function Dashboard({ session, isDark, toggleDark }) {
           </div>
         </div>
 
-        <div className="flex items-center gap-3 relative z-[10000]">
+        <div className="flex items-center gap-2 min-[400px]:gap-3 relative z-[10000] shrink-0">
           <div className="relative z-[10000]">
             <button
-              onClick={() => setShowUserMenu(prev => !prev)}
+              type="button"
+              onClick={() => { setShowReminders(prev => !prev); setShowUserMenu(false) }}
+              aria-label={urgentCount > 0 ? `Lembretes (${urgentCount} urgentes)` : 'Lembretes'}
+              aria-expanded={showReminders}
+              className="relative w-9 h-9 min-[400px]:w-10 min-[400px]:h-10 rounded-full bg-white/10 border border-white/15 backdrop-blur-md flex items-center justify-center text-white hover:bg-white/15 transition-all duration-200"
+            >
+              <Bell size={17} />
+              {urgentCount > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-[#D3AF37] text-[#1a2e26] text-[10px] font-bold flex items-center justify-center shadow">
+                  {urgentCount > 9 ? '9+' : urgentCount}
+                </span>
+              )}
+            </button>
+
+            {showReminders && (
+              <>
+                <button type="button" aria-label="Fechar lembretes" className="fixed inset-0 z-[9998] cursor-default" onClick={() => setShowReminders(false)} />
+                <div role="dialog" aria-label="Lembretes" className="fixed left-3 right-3 top-[72px] md:absolute md:left-auto md:right-0 md:top-full md:mt-3 z-[10000] md:w-80 bg-white dark:bg-gray-900 border border-[#e4e9e6] dark:border-gray-800 rounded-2xl shadow-[0_18px_50px_rgba(0,0,0,0.18)] overflow-hidden">
+                  <div className="px-4 py-3 border-b border-[#edf1ee] dark:border-gray-800 flex items-center justify-between">
+                    <span className="text-sm font-bold text-[#1a2e26] dark:text-gray-100">Lembretes</span>
+                    <span className="text-[11px] text-gray-400">próximos 3 dias</span>
+                  </div>
+                  <div className="max-h-72 overflow-y-auto p-2">
+                    {reminders.length === 0 ? (
+                      <p className="text-xs text-gray-500 dark:text-gray-400 text-center py-6 px-4">Tudo em dia! Nenhum prazo atrasado ou chegando.</p>
+                    ) : reminders.map(item => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => { setActiveTab(item.tab); setShowReminders(false) }}
+                        className="w-full flex items-center gap-3 text-left px-3 py-2.5 rounded-xl hover:bg-[#f0f5f2] dark:hover:bg-gray-800 transition-colors"
+                      >
+                        {item.kind === 'event' ? <Calendar size={15} className="text-[#b8942a] shrink-0" /> : <ListTodo size={15} className="text-[#00674F] shrink-0" />}
+                        <span className="flex-1 min-w-0">
+                          <span className="block text-xs font-semibold text-[#1a2e26] dark:text-gray-100 truncate">{item.title}</span>
+                          <span className={`block text-[11px] font-bold ${item.urgency === 'overdue' ? 'text-red-500' : item.urgency === 'today' ? 'text-[#b8942a]' : 'text-gray-500 dark:text-gray-400'}`}>{reminderLabel(item)}</span>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                  {!prefTaskReminders && (
+                    <button type="button" onClick={handleToggleReminders} className="w-full text-xs font-bold text-[#00674F] border-t border-[#edf1ee] dark:border-gray-800 py-3 hover:bg-[#f0f5f2] dark:hover:bg-gray-800 transition-colors">
+                      Receber um resumo diário no navegador
+                    </button>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+
+          <div className="relative z-[10000]">
+            <button
+              onClick={() => { setShowUserMenu(prev => !prev); setShowReminders(false) }}
               className="flex items-center gap-2.5 bg-white/10 border border-white/15 rounded-full py-1.5 pl-1.5 pr-3.5 backdrop-blur-md cursor-pointer hover:bg-white/15 transition-all duration-200"
             >
               <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#D3AF37] to-[#a88620] flex items-center justify-center text-xs font-semibold text-white shrink-0 shadow-sm">
@@ -1061,6 +1277,16 @@ export default function Dashboard({ session, isDark, toggleDark }) {
                     Configurações
                   </button>
 
+                  {(installApp.canInstall || installApp.showIOSHint) && (
+                    <button
+                      onClick={handleInstallApp}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-[#3d4f47] dark:text-gray-200 hover:bg-[#f0f5f2] dark:hover:bg-gray-800 transition-colors"
+                    >
+                      <Download size={17} className="text-[#00674F]" />
+                      Instalar app
+                    </button>
+                  )}
+
                   <button
                     onClick={toggleDark}
                     className="w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-[#3d4f47] dark:text-gray-200 hover:bg-[#f0f5f2] dark:hover:bg-gray-800 transition-colors"
@@ -1092,6 +1318,7 @@ export default function Dashboard({ session, isDark, toggleDark }) {
           <button onClick={() => setActiveTab('inicio')} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium transition-all duration-200 ease-out ${activeTab === 'inicio' ? 'bg-[#00674F] text-white shadow-sm' : 'text-[#5a6b63] dark:text-gray-300 hover:bg-[#E8F5F0] hover:text-[#00674F] hover:translate-x-1 hover:scale-[1.01] hover:shadow-sm dark:hover:bg-gray-800'}`}><Home size={16} /><span>Início</span></button>
           <button onClick={() => setActiveTab('tarefas')} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium transition-all duration-200 ease-out ${activeTab === 'tarefas' ? 'bg-[#00674F] text-white shadow-sm' : 'text-[#5a6b63] dark:text-gray-300 hover:bg-[#E8F5F0] hover:text-[#00674F] hover:translate-x-1 hover:shadow-sm dark:hover:bg-gray-800'}`}><ListTodo size={16} /><span>Tarefas</span></button>
           <button onClick={() => setActiveTab('agenda')} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium transition-all duration-200 ease-out ${activeTab === 'agenda' ? 'bg-[#00674F] text-white shadow-sm' : 'text-[#5a6b63] dark:text-gray-300 hover:bg-[#E8F5F0] hover:text-[#00674F] hover:translate-x-1 hover:shadow-sm dark:hover:bg-gray-800'}`}><Calendar size={16} /><span>Agenda</span></button>
+          <button onClick={() => setActiveTab('disciplinas')} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium transition-all duration-200 ease-out ${activeTab === 'disciplinas' ? 'bg-[#00674F] text-white shadow-sm' : 'text-[#5a6b63] dark:text-gray-300 hover:bg-[#E8F5F0] hover:text-[#00674F] hover:translate-x-1 hover:shadow-sm dark:hover:bg-gray-800'}`}><GraduationCap size={16} /><span>Disciplinas</span></button>
           <button onClick={() => setActiveTab('noticias')} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium transition-all duration-200 ease-out ${activeTab === 'noticias' ? 'bg-[#00674F] text-white shadow-sm' : 'text-[#5a6b63] dark:text-gray-300 hover:bg-[#E8F5F0] hover:text-[#00674F] hover:translate-x-1 hover:shadow-sm dark:hover:bg-gray-800'}`}><Megaphone size={16} /><span>Notícias</span></button>
           <button onClick={() => setActiveTab('materiais')} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium transition-all duration-200 ease-out ${activeTab === 'materiais' ? 'bg-[#00674F] text-white shadow-sm' : 'text-[#5a6b63] dark:text-gray-300 hover:bg-[#E8F5F0] hover:text-[#00674F] hover:translate-x-1 hover:shadow-sm dark:hover:bg-gray-800'}`}><BookOpen size={16} /><span>Materiais</span></button>
           <button onClick={() => setActiveTab('relatorios')} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium transition-all duration-200 ease-out ${activeTab === 'relatorios' ? 'bg-[#00674F] text-white shadow-sm' : 'text-[#5a6b63] dark:text-gray-300 hover:bg-[#E8F5F0] hover:text-[#00674F] hover:translate-x-1 hover:shadow-sm dark:hover:bg-gray-800'}`}><BarChart size={16} /><span>Relatórios</span></button>
@@ -1117,6 +1344,25 @@ export default function Dashboard({ session, isDark, toggleDark }) {
                     Ver todas as tarefas
                   </button>
                 </div>
+
+                {urgentCount > 0 && (
+                  <div className="bg-[#fdf5e0] dark:bg-gray-900 border border-[#f2e2b0] dark:border-gray-800 rounded-2xl p-5">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="flex items-center gap-2 text-[13px] font-bold text-[#1a2e26] dark:text-gray-100"><Bell size={16} className="text-[#b8942a]" /> Lembretes ({urgentCount})</span>
+                      <button type="button" onClick={() => setActiveTab('tarefas')} className="text-xs font-bold text-[#00674F] hover:underline">Ver tarefas</button>
+                    </div>
+                    <div className="space-y-2">
+                      {urgentReminders(reminders).slice(0, 4).map(item => (
+                        <button key={item.id} type="button" onClick={() => setActiveTab(item.tab)} className="w-full flex items-center gap-3 text-left bg-white/70 dark:bg-gray-800 rounded-xl px-3 py-2 hover:bg-white dark:hover:bg-gray-700 transition-colors">
+                          {item.kind === 'event' ? <Calendar size={14} className="text-[#b8942a] shrink-0" /> : <ListTodo size={14} className="text-[#00674F] shrink-0" />}
+                          <span className="flex-1 min-w-0 text-xs font-semibold text-[#1a2e26] dark:text-gray-100 truncate">{item.title}</span>
+                          <span className={`shrink-0 text-[11px] font-bold ${item.urgency === 'overdue' ? 'text-red-500' : item.urgency === 'today' ? 'text-[#b8942a]' : 'text-gray-500 dark:text-gray-400'}`}>{reminderLabel(item)}</span>
+                        </button>
+                      ))}
+                    </div>
+                    {urgentCount > 4 && <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-2">E mais {urgentCount - 4} {urgentCount - 4 === 1 ? 'lembrete' : 'lembretes'}.</p>}
+                  </div>
+                )}
 
                 {/* Grid 4 Cards Superiores (Com Contadores Reais) */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -1396,6 +1642,14 @@ export default function Dashboard({ session, isDark, toggleDark }) {
                 <Habits session={session} showNotification={showNotification} />
 
               </div>
+            )}
+
+
+            {/* ==================== ABA DISCIPLINAS ==================== */}
+            {activeTab === 'disciplinas' && (
+              <Suspense fallback={<div className="h-40 rounded-2xl bg-white dark:bg-gray-900 border border-[#e4e9e6] dark:border-gray-800 animate-pulse" />}>
+                <Courses session={session} showNotification={showNotification} />
+              </Suspense>
             )}
 
 
@@ -2151,9 +2405,6 @@ export default function Dashboard({ session, isDark, toggleDark }) {
                         <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[#D3AF37] to-[#a88620] flex items-center justify-center text-2xl font-bold text-white shadow-sm">
                           {avatarInitials}
                         </div>
-                        <button type="button" className="absolute right-0 bottom-0 w-7 h-7 bg-[#00674F] text-white rounded-full flex items-center justify-center border-[3px] border-white dark:border-gray-900 shadow-sm hover:bg-[#004c3b] transition-colors" title="Alterar foto">
-                          <Camera size={12} />
-                        </button>
                       </div>
                     </div>
 
@@ -2203,24 +2454,28 @@ export default function Dashboard({ session, isDark, toggleDark }) {
 
                       <div className="space-y-1">
                         {[
-                          { icon: Bell, title: 'Notificações por e-mail', desc: 'Receba notificações sobre tarefas e eventos.', value: prefEmailNotifications, setter: setPrefEmailNotifications },
-                          { icon: Bell, title: 'Lembretes de tarefas', desc: 'Receba lembretes diários das suas tarefas.', value: prefTaskReminders, setter: setPrefTaskReminders },
-                          { icon: BarChart, title: 'Resumo semanal', desc: 'Receba um resumo semanal das suas atividades.', value: prefWeeklySummary, setter: setPrefWeeklySummary },
+                          { icon: Bell, title: 'Notificações por e-mail', desc: 'Receba notificações sobre tarefas e eventos.', value: prefEmailNotifications, setter: setPrefEmailNotifications, soon: true },
+                          { icon: Bell, title: 'Lembretes de tarefas', desc: 'Resumo diário dos prazos nas notificações, quando você abre o app.', value: prefTaskReminders, onToggle: handleToggleReminders },
+                          { icon: BarChart, title: 'Resumo semanal', desc: 'Receba um resumo semanal das suas atividades.', value: prefWeeklySummary, setter: setPrefWeeklySummary, soon: true },
                         ].map((item, idx) => (
                           <div key={idx} className="flex items-center gap-3 py-2.5 border-b border-[#eef2ef] dark:border-gray-800 last:border-b-0">
                             <div className="w-8 h-8 rounded-lg bg-[#fafcfb] dark:bg-gray-800 flex items-center justify-center shrink-0">
                               <item.icon size={14} className="text-[#00674F]" />
                             </div>
                             <div className="flex-1 min-w-0">
-                              <div className="text-[12px] font-bold text-gray-700 dark:text-gray-200">{item.title}</div>
+                              <div className="text-[12px] font-bold text-gray-700 dark:text-gray-200">{item.title}{item.soon && <span className="ml-2 text-[9px] font-bold uppercase bg-[#fdf5e0] text-[#b8942a] px-1.5 py-0.5 rounded-md align-middle">Em breve</span>}</div>
                               <div className="text-[11px] text-[#8a9e94] dark:text-gray-400">{item.desc}</div>
                             </div>
                             <button
                               type="button"
-                              onClick={() => item.setter(!item.value)}
-                              className={`shrink-0 w-10 h-[22px] rounded-full transition-colors relative ${item.value ? 'bg-[#00674F]' : 'bg-gray-300 dark:bg-gray-700'}`}
+                              onClick={item.soon ? undefined : (item.onToggle || (() => item.setter(!item.value)))}
+                              disabled={item.soon}
+                              role="switch"
+                              aria-checked={item.soon ? false : item.value}
+                              aria-label={item.title}
+                              className={`shrink-0 w-10 h-[22px] rounded-full transition-colors relative ${item.soon ? 'opacity-50 cursor-not-allowed' : ''} ${item.value && !item.soon ? 'bg-[#00674F]' : 'bg-gray-300 dark:bg-gray-700'}`}
                             >
-                              <span className={`absolute top-[2px] w-[18px] h-[18px] bg-white rounded-full shadow-sm transition-all ${item.value ? 'left-[20px]' : 'left-[2px]'}`} />
+                              <span className={`absolute top-[2px] w-[18px] h-[18px] bg-white rounded-full shadow-sm transition-all ${item.value && !item.soon ? 'left-[20px]' : 'left-[2px]'}`} />
                             </button>
                           </div>
                         ))}
@@ -2257,10 +2512,10 @@ export default function Dashboard({ session, isDark, toggleDark }) {
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="text-[12px] font-bold text-gray-700 dark:text-gray-200">Sessões ativas</div>
-                            <div className="text-[11px] text-[#8a9e94] dark:text-gray-400">Gerencie os dispositivos conectados à sua conta.</div>
+                            <div className="text-[11px] text-[#8a9e94] dark:text-gray-400">Desconecte sua conta de todos os outros dispositivos.</div>
                           </div>
-                          <button type="button" className="shrink-0 text-[11px] font-bold border border-[#e4e9e6] dark:border-gray-700 text-gray-600 dark:text-gray-300 px-3.5 py-1.5 rounded-lg hover:bg-[#fafcfb] dark:hover:bg-gray-800 transition-colors">
-                            Gerenciar
+                          <button type="button" onClick={() => setSessionsDialog(true)} className="shrink-0 text-[11px] font-bold border border-[#e4e9e6] dark:border-gray-700 text-gray-600 dark:text-gray-300 px-3.5 py-1.5 rounded-lg hover:bg-[#fafcfb] dark:hover:bg-gray-800 transition-colors">
+                            Encerrar outras
                           </button>
                         </div>
 
@@ -2272,7 +2527,7 @@ export default function Dashboard({ session, isDark, toggleDark }) {
                             <div className="text-[12px] font-bold text-gray-700 dark:text-gray-200">Excluir conta</div>
                             <div className="text-[11px] text-[#8a9e94] dark:text-gray-400">Excluir permanentemente sua conta e todos os dados.</div>
                           </div>
-                          <button type="button" className="shrink-0 text-[11px] font-bold bg-red-500 hover:bg-red-600 text-white px-3.5 py-1.5 rounded-lg shadow-sm transition-colors">
+                          <button type="button" onClick={() => setDeleteDialog(true)} className="shrink-0 text-[11px] font-bold bg-red-500 hover:bg-red-600 text-white px-3.5 py-1.5 rounded-lg shadow-sm transition-colors">
                             Excluir conta
                           </button>
                         </div>
@@ -2306,8 +2561,8 @@ export default function Dashboard({ session, isDark, toggleDark }) {
                       <div className="text-[12px] text-gray-700 dark:text-gray-200">rychardeduardos@gmail.com</div>
                     </div>
                   </div>
-                  <button type="button" className="shrink-0 text-[11px] font-bold border border-[#e4e9e6] dark:border-gray-700 text-gray-600 dark:text-gray-300 px-4 py-2 rounded-lg hover:bg-[#fafcfb] dark:hover:bg-gray-800 transition-colors sm:ml-auto">
-                    Ver termos de uso
+                  <button type="button" onClick={() => setShowLegal(true)} className="shrink-0 text-[11px] font-bold border border-[#e4e9e6] dark:border-gray-700 text-gray-600 dark:text-gray-300 px-4 py-2 rounded-lg hover:bg-[#fafcfb] dark:hover:bg-gray-800 transition-colors sm:ml-auto">
+                    Termos e privacidade
                   </button>
                 </div>
               </div>
@@ -2320,7 +2575,7 @@ export default function Dashboard({ session, isDark, toggleDark }) {
       {/* ==================== NAVEGAÇÃO INFERIOR (CELULAR) ==================== */}
       <nav
         aria-label="Navegação principal"
-        className="md:hidden shrink-0 grid grid-cols-6 bg-white dark:bg-gray-900 border-t border-[#e8ebe9] dark:border-gray-800 shadow-[0_-4px_16px_rgba(0,0,0,0.06)] pb-[env(safe-area-inset-bottom)] z-[9998]"
+        className="md:hidden shrink-0 grid grid-cols-7 bg-white dark:bg-gray-900 border-t border-[#e8ebe9] dark:border-gray-800 shadow-[0_-4px_16px_rgba(0,0,0,0.06)] pb-[env(safe-area-inset-bottom)] z-[9998]"
       >
         {MOBILE_NAV_ITEMS.map(({ id, label, icon: Icon }) => {
           const active = activeTab === id
@@ -2330,7 +2585,7 @@ export default function Dashboard({ session, isDark, toggleDark }) {
               type="button"
               onClick={() => setActiveTab(id)}
               aria-current={active ? 'page' : undefined}
-              className={`relative flex flex-col items-center justify-center gap-0.5 pt-2 pb-1.5 text-[10px] font-semibold transition-colors ${active ? 'text-[#00674F] dark:text-emerald-300' : 'text-[#8a9e94] dark:text-gray-400'}`}
+              className={`relative flex flex-col items-center justify-center gap-0.5 pt-2 pb-1.5 text-[9px] tracking-tight min-[410px]:text-[10px] min-[410px]:tracking-normal font-semibold transition-colors ${active ? 'text-[#00674F] dark:text-emerald-300' : 'text-[#8a9e94] dark:text-gray-400'}`}
             >
               {active && <span className="absolute top-0 left-1/4 right-1/4 h-0.5 rounded-b-full bg-[#00674F] dark:bg-emerald-300" />}
               <Icon size={19} />
@@ -2348,9 +2603,9 @@ export default function Dashboard({ session, isDark, toggleDark }) {
         title="Feed Central da UFA"
       >
         <Megaphone size={22} />
-        {posts.length > 0 && (
+        {visiblePosts.length > 0 && (
           <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-[#D3AF37] text-white text-[9px] font-bold flex items-center justify-center shadow-sm">
-            {posts.length > 9 ? '9+' : posts.length}
+            {visiblePosts.length > 9 ? '9+' : visiblePosts.length}
           </span>
         )}
       </button>
@@ -2412,7 +2667,7 @@ export default function Dashboard({ session, isDark, toggleDark }) {
 
             {/* Lista de posts */}
             <div className="flex-1 overflow-y-auto space-y-2 p-3 scrollbar-thin">
-              {posts.map((post, index) => {
+              {visiblePosts.map((post, index) => {
                 const authorName = post.profiles?.username || 'Estudante UFA'
                 const initials = authorName.slice(0, 2).toUpperCase()
                 return (
@@ -2427,7 +2682,25 @@ export default function Dashboard({ session, isDark, toggleDark }) {
                             <div className="text-[13px] font-bold text-[#1a2e26] dark:text-gray-100 leading-none">{authorName}</div>
                             <div className="text-[10px] text-[#8a9e94] dark:text-gray-400 mt-1">{formatRelativeTime(post.created_at)}</div>
                           </div>
-                          <button className="text-gray-300 hover:text-[#00674F] px-1 rounded-md">•••</button>
+                          <div className="relative">
+                            <button type="button" onClick={() => setPostMenuId(postMenuId === post.id ? null : post.id)} aria-label="Mais opções da publicação" aria-haspopup="menu" aria-expanded={postMenuId === post.id} className="text-gray-300 hover:text-[#00674F] px-1 rounded-md">•••</button>
+                            {postMenuId === post.id && (
+                              <>
+                                <button type="button" aria-label="Fechar menu" className="fixed inset-0 z-[5] cursor-default" onClick={() => setPostMenuId(null)} />
+                                <div role="menu" className="absolute right-0 top-6 z-10 w-48 bg-white dark:bg-gray-900 border border-[#e4e9e6] dark:border-gray-700 rounded-xl shadow-lg py-1">
+                                  {post.user_id === session.user.id ? (
+                                    <button type="button" role="menuitem" onClick={() => { setPostMenuId(null); setPostToDelete(post) }} className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-red-500 hover:bg-red-50 dark:hover:bg-gray-800 transition-colors">
+                                      <Trash2 size={13} /> Excluir publicação
+                                    </button>
+                                  ) : (
+                                    <button type="button" role="menuitem" onClick={() => { setPostMenuId(null); setReportTarget(post) }} className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-gray-600 dark:text-gray-200 hover:bg-[#f0f5f2] dark:hover:bg-gray-800 transition-colors">
+                                      <Flag size={13} /> Denunciar
+                                    </button>
+                                  )}
+                                </div>
+                              </>
+                            )}
+                          </div>
                         </div>
                         <p className="text-[12px] text-[#5a6b63] dark:text-gray-300 mt-3 whitespace-pre-wrap break-words leading-relaxed">{post.content}</p>
                         <div className="flex items-center gap-5 pt-3 mt-3 border-t border-[#eef2ef] dark:border-gray-700 text-[11px] text-gray-400">
@@ -2785,6 +3058,37 @@ export default function Dashboard({ session, isDark, toggleDark }) {
       )}
 
       {/* MODAL DE NOTIFICAÇÃO (substitui alert() nativo) */}
+      {showLegal && <LegalModal onClose={() => setShowLegal(false)} />}
+
+      {sessionsDialog && (
+        <ConfirmDialog
+          title="Sair dos outros dispositivos?"
+          message="Sua conta será desconectada em todos os outros aparelhos e navegadores. Você continua conectado neste."
+          confirmLabel="Encerrar outras sessões"
+          loading={accountBusy}
+          onConfirm={handleSignOutOthers}
+          onClose={() => setSessionsDialog(false)}
+        />
+      )}
+
+      {deleteDialog && (
+        <DeleteAccountDialog email={session?.user?.email} loading={accountBusy} onConfirm={handleDeleteAccount} onClose={() => !accountBusy && setDeleteDialog(false)} />
+      )}
+
+      {postToDelete && (
+        <ConfirmDialog
+          title="Excluir esta publicação?"
+          message="Ela some do Feed para todos, junto com as curtidas e os comentários. Não dá para desfazer."
+          confirmLabel="Excluir"
+          danger
+          loading={accountBusy}
+          onConfirm={handleDeletePost}
+          onClose={() => setPostToDelete(null)}
+        />
+      )}
+
+      {reportTarget && <ReportPostDialog post={reportTarget} loading={accountBusy} onSubmit={handleReportPost} onClose={() => setReportTarget(null)} />}
+
       {notification.open && (
         <div
           className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[100000] p-4"
