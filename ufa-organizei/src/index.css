@@ -6,3 +6,38 @@
   --color-ufabc-verde: #00674F;
   --color-ufabc-dourado: #C8A923;
 }
+
+@layer base {
+  /* Painel: 100vh como alternativa; a classe h-[100dvh] (altura realmente visível no celular) vence quando há suporte */
+  .ufa-dashboard {
+    height: 100vh;
+  }
+
+  /* Evita o "puxão" elástico da página no iPhone, que escondia a barra inferior */
+  html,
+  body {
+    overscroll-behavior: none;
+  }
+}
+
+@layer base {
+  /* O Tailwind v4 deixa os botões com a setinha normal. Aqui devolvemos a mãozinha nos elementos clicáveis. */
+  button:not(:disabled),
+  [role='button']:not([aria-disabled='true']),
+  [role='tab'],
+  [role='menuitem'],
+  [role='switch']:not(:disabled),
+  summary,
+  select:not(:disabled),
+  input[type='checkbox']:not(:disabled),
+  input[type='radio']:not(:disabled),
+  input[type='file']:not(:disabled),
+  label[for] {
+    cursor: pointer;
+  }
+
+  button:disabled,
+  select:disabled {
+    cursor: not-allowed;
+  }
+}

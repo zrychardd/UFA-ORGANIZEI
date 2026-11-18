@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef, lazy, Suspense } from 'react'
 import { supabase } from './supabaseClient'
 import Habits from './Habits'
 import LegalModal from './Legal'
+import Avatar from './Avatar'
+import { AVATAR_BUCKET, avatarPath, validateAvatarFile, resizeAvatar, withCacheBust } from './avatarUtils'
 import { ConfirmDialog, DeleteAccountDialog, ReportPostDialog } from './Dialogs'
 import { buildReminders, urgentReminders, reminderLabel, getReminderPref, setReminderPref, enableReminders, maybeNotifyDaily } from './reminders'
 import { useInstallApp } from './pwa'
@@ -11,15 +13,16 @@ import {
   ChevronLeft, ChevronDown, Check, Bell, Award, Flame, MapPin,
   Clock, ToggleRight, Search, Send, SlidersHorizontal,
   X, ArrowDown, Minus, ArrowUp, BookOpen, User, Briefcase, Moon, Sun,
-  Lock, Monitor, Info, KeyRound, ShieldCheck, AlertTriangle, GraduationCap, Download, Flag
+  Lock, Monitor, Info, KeyRound, ShieldCheck, AlertTriangle, GraduationCap, Download, Flag, ChevronRight, Camera
 } from 'lucide-react'
 
 // Relatórios só é baixado quando o usuário abre a aba
 const Reports = lazy(() => import('./Reports'))
 const Courses = lazy(() => import('./Courses'))
+const Moderation = lazy(() => import('./Moderation'))
 
 // Abas válidas (usadas para abrir direto numa aba por link: /?tab=tarefas)
-const VALID_TABS = ['inicio', 'tarefas', 'agenda', 'disciplinas', 'noticias', 'materiais', 'relatorios', 'configuracoes']
+const VALID_TABS = ['inicio', 'tarefas', 'agenda', 'disciplinas', 'noticias', 'materiais', 'relatorios', 'moderacao', 'configuracoes']
 const initialTabFromUrl = () => {
   try {
     const tab = new URLSearchParams(window.location.search).get('tab')
@@ -159,6 +162,21 @@ export default function Dashboard({ session, isDark, toggleDark }) {
   const [reportTarget, setReportTarget] = useState(null)
   const [reportedIds, setReportedIds] = useState(() => new Set())
   const installApp = useInstallApp()
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    try { return localStorage.getItem('ufa-sidebar-collapsed') === '1' } catch { return false }
+  })
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [myAvatarUrl, setMyAvatarUrl] = useState(null)
+  const [avatarsMap, setAvatarsMap] = useState({})
+  const [avatarBusy, setAvatarBusy] = useState(false)
+  const avatarInputRef = useRef(null)
+
+  // Recolher/expandir o menu lateral (a escolha fica guardada neste aparelho)
+  const toggleSidebar = () => {
+    const next = !sidebarCollapsed
+    setSidebarCollapsed(next)
+    try { localStorage.setItem('ufa-sidebar-collapsed', next ? '1' : '0') } catch { /* sem armazenamento */ }
+  }
 
   // Estados das Tarefas
   const [tasks, setTasks] = useState([])
@@ -277,10 +295,37 @@ export default function Dashboard({ session, isDark, toggleDark }) {
   const [prefWeeklySummary, setPrefWeeklySummary] = useState(true)
 
   const avatarInitials = headerDisplayName.slice(0, 2).toUpperCase()
+  const sidebarItems = isAdmin ? [...MOBILE_NAV_ITEMS, { id: 'moderacao', label: 'Moderação', icon: ShieldCheck }] : MOBILE_NAV_ITEMS
 
   // Ao trocar de aba (principalmente no celular), volta o conteúdo para o topo
   const mainRef = useRef(null)
   useEffect(() => { mainRef.current?.scrollTo?.({ top: 0 }) }, [activeTab])
+
+  // Administrador? (a tabela admins só mostra a própria linha, então quem não é admin recebe vazio)
+  useEffect(() => {
+    const userId = session?.user?.id
+    if (!userId) return
+    let cancelled = false
+    supabase.from('admins').select('user_id').eq('user_id', userId).maybeSingle().then(({ data, error }) => {
+      if (cancelled) return
+      const admin = !error && Boolean(data)
+      setIsAdmin(admin)
+      // Quem não é administrador e abriu a Moderação por link volta para o Início (em vez de ver uma tela vazia)
+      if (!admin) setActiveTab(current => (current === 'moderacao' ? 'inicio' : current))
+    })
+    return () => { cancelled = true }
+  }, [session?.user?.id])
+
+  // Minha foto de perfil (consulta separada: sem a coluna ainda, o painel segue funcionando com as iniciais)
+  useEffect(() => {
+    const userId = session?.user?.id
+    if (!userId) return
+    let cancelled = false
+    supabase.from('profiles').select('avatar_url').eq('id', userId).maybeSingle().then(({ data, error }) => {
+      if (!cancelled && !error) setMyAvatarUrl(data?.avatar_url || null)
+    })
+    return () => { cancelled = true }
+  }, [session?.user?.id])
 
   // Denúncias já feitas por este usuário (esses posts ficam escondidos só para ele)
   useEffect(() => {
@@ -419,8 +464,83 @@ export default function Dashboard({ session, isDark, toggleDark }) {
     const email = session?.user?.email
     if (!email) return
     const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin })
-    if (error) showNotification('Não foi possível enviar o link agora. Tente novamente em alguns minutos.', 'error')
-    else showNotification(`Enviamos um link para ${email}. Abra o e-mail para criar sua nova senha.`, 'info', 'Confira seu e-mail')
+    if (error) {
+      console.error('Erro ao enviar o link de senha:', error.message)
+      const reason = (error.message || '').toLowerCase()
+      const message = reason.includes('rate limit') || reason.includes('only request this after') || reason.includes('security purposes')
+        ? 'Você pediu e-mails demais em pouco tempo. Aguarde um pouco e tente de novo.'
+        : 'O envio de e-mails está indisponível no momento. Tente novamente mais tarde.'
+      showNotification(message, 'error')
+    } else {
+      showNotification(`Enviamos um link para ${email}. Abra o e-mail para criar sua nova senha.`, 'info', 'Confira seu e-mail')
+    }
+  }
+
+  // Foto de perfil: recorta em quadrado, comprime no aparelho e envia para o Storage
+  const handleAvatarFile = async (event) => {
+    const file = event.target.files?.[0]
+    event.target.value = '' // permite escolher o mesmo arquivo de novo depois
+    if (!file) return
+
+    const check = validateAvatarFile(file)
+    if (!check.ok) {
+      showNotification(check.message, 'error', 'Foto inválida')
+      return
+    }
+
+    const userId = session.user.id
+    setAvatarBusy(true)
+    try {
+      const blob = await resizeAvatar(file)
+      const path = avatarPath(userId)
+      const { error: uploadError } = await supabase.storage.from(AVATAR_BUCKET).upload(path, blob, { upsert: true, contentType: 'image/jpeg', cacheControl: '3600' })
+      if (uploadError) throw uploadError
+
+      const { data: publicData } = supabase.storage.from(AVATAR_BUCKET).getPublicUrl(path)
+      const url = withCacheBust(publicData.publicUrl)
+
+      const { data: updated, error: profileError } = await supabase.from('profiles').update({ avatar_url: url }).eq('id', userId).select('id')
+      if (profileError) throw profileError
+      if (!updated || updated.length === 0) {
+        const { error: insertError } = await supabase.from('profiles').upsert([{ id: userId, username: headerDisplayName, avatar_url: url }])
+        if (insertError) throw insertError
+      }
+
+      setMyAvatarUrl(url)
+      setAvatarsMap(prev => ({ ...prev, [userId]: url }))
+    } catch (err) {
+      console.error('Erro ao enviar a foto:', err)
+      const reason = `${err?.message || ''}`.toLowerCase()
+      const notReady = reason.includes('bucket') || reason.includes('avatar_url') || reason.includes('row-level') || reason.includes('not found')
+      showNotification(
+        notReady
+          ? 'A foto de perfil ainda não foi liberada. Rode o arquivo supabase-avatares.sql no Supabase e tente de novo.'
+          : 'Não foi possível enviar a foto agora. Tente novamente.',
+        'error'
+      )
+    } finally {
+      setAvatarBusy(false)
+    }
+  }
+
+  const handleRemoveAvatar = async () => {
+    const userId = session.user.id
+    setAvatarBusy(true)
+    const { error } = await supabase.from('profiles').update({ avatar_url: null }).eq('id', userId)
+    if (error) {
+      console.error('Erro ao remover a foto:', error.message)
+      setAvatarBusy(false)
+      showNotification('Não foi possível remover a foto agora. Tente novamente.', 'error')
+      return
+    }
+    await supabase.storage.from(AVATAR_BUCKET).remove([avatarPath(userId)])
+    setMyAvatarUrl(null)
+    setAvatarsMap(prev => {
+      const next = { ...prev }
+      delete next[userId]
+      return next
+    })
+    setAvatarBusy(false)
   }
 
   const handleDeletePost = async () => {
@@ -477,7 +597,10 @@ export default function Dashboard({ session, isDark, toggleDark }) {
         await supabase.storage.from('task-attachments').remove(paths.slice(i, i + 100))
       }
 
-      // 2) Dados e conta de login
+      // 2) Foto de perfil
+      await supabase.storage.from(AVATAR_BUCKET).remove([avatarPath(session.user.id)])
+
+      // 3) Dados e conta de login
       const { error } = await supabase.rpc('delete_my_account')
       if (error) throw error
 
@@ -801,6 +924,14 @@ export default function Dashboard({ session, isDark, toggleDark }) {
       .select('id, username, full_name')
 
     if (profilesError) console.warn('Perfis não carregados:', profilesError.message)
+
+    // Fotos de perfil (consulta separada: se a coluna ainda não existir, o feed continua funcionando sem fotos)
+    const { data: avatarData, error: avatarError } = await supabase.from('profiles').select('id, avatar_url')
+    if (!avatarError && avatarData) {
+      const map = {}
+      avatarData.forEach(row => { if (row.avatar_url) map[row.id] = row.avatar_url })
+      setAvatarsMap(map)
+    }
 
     const profilesMap = {}
     profilesData?.forEach(p => {
@@ -1148,7 +1279,7 @@ export default function Dashboard({ session, isDark, toggleDark }) {
   }
 
   return (
-    <div className="ufa-dashboard flex flex-col h-screen h-[100dvh] bg-[#F5F7F6] dark:bg-gray-950 min-h-[640px] font-sans antialiased overflow-hidden transition-colors duration-300">
+    <div className="ufa-dashboard flex flex-col h-[100dvh] bg-[#F5F7F6] dark:bg-gray-950 md:min-h-[640px] font-sans antialiased overflow-hidden transition-colors duration-300">
 
       {/* ==================== HEADER OFICIAL ==================== */}
       <header className="bg-gradient-to-br from-[#003d2e] via-[#00674F] to-[#005040] px-3 min-[400px]:px-4 md:px-7 h-16 md:h-24 flex items-center justify-between relative overflow-visible shrink-0 shadow-md z-[9999]">
@@ -1233,9 +1364,7 @@ export default function Dashboard({ session, isDark, toggleDark }) {
               onClick={() => { setShowUserMenu(prev => !prev); setShowReminders(false) }}
               className="flex items-center gap-2.5 bg-white/10 border border-white/15 rounded-full py-1.5 pl-1.5 pr-3.5 backdrop-blur-md cursor-pointer hover:bg-white/15 transition-all duration-200"
             >
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#D3AF37] to-[#a88620] flex items-center justify-center text-xs font-semibold text-white shrink-0 shadow-sm">
-                {avatarInitials}
-              </div>
+              <Avatar url={myAvatarUrl} initials={avatarInitials} className="w-8 h-8 rounded-full bg-gradient-to-br from-[#D3AF37] to-[#a88620] flex items-center justify-center text-xs font-semibold text-white shrink-0 shadow-sm" />
               <div className="text-white hidden sm:block text-left">
                 <span className="text-xs font-medium block">{headerDisplayName}</span>
                 <span className="text-[10px] text-white/60 block truncate max-w-[140px]">{headerEmail}</span>
@@ -1246,9 +1375,7 @@ export default function Dashboard({ session, isDark, toggleDark }) {
             {showUserMenu && (
               <div className="absolute right-0 top-full mt-3 z-[10000] w-72 bg-white dark:bg-gray-900 border border-[#e4e9e6] dark:border-gray-800 rounded-2xl shadow-[0_18px_50px_rgba(0,0,0,0.18)] overflow-hidden animate-fade-in">
                 <div className="p-4 flex items-center gap-3 border-b border-[#edf1ee] dark:border-gray-800">
-                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#D3AF37] to-[#a88620] flex items-center justify-center text-sm font-bold text-white shadow-sm">
-                    {avatarInitials}
-                  </div>
+                  <Avatar url={myAvatarUrl} initials={avatarInitials} className="w-12 h-12 rounded-full bg-gradient-to-br from-[#D3AF37] to-[#a88620] flex items-center justify-center text-sm font-bold text-white shadow-sm" />
                   <div className="min-w-0">
                     <p className="text-sm font-bold text-[#1a2e26] dark:text-gray-100 truncate">{headerDisplayName}</p>
                     <p className="text-xs text-[#8a9e94] dark:text-gray-400 truncate">{headerEmail}</p>
@@ -1276,6 +1403,16 @@ export default function Dashboard({ session, isDark, toggleDark }) {
                     <Settings size={17} className="text-[#00674F]" />
                     Configurações
                   </button>
+
+                  {isAdmin && (
+                    <button
+                      onClick={() => { setActiveTab('moderacao'); setShowUserMenu(false) }}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-[#3d4f47] dark:text-gray-200 hover:bg-[#f0f5f2] dark:hover:bg-gray-800 transition-colors"
+                    >
+                      <ShieldCheck size={17} className="text-[#00674F]" />
+                      Moderação
+                    </button>
+                  )}
 
                   {(installApp.canInstall || installApp.showIOSHint) && (
                     <button
@@ -1314,20 +1451,36 @@ export default function Dashboard({ session, isDark, toggleDark }) {
       {/* ==================== CORPO CENTRAL ==================== */}
       <div className="flex flex-1 overflow-hidden">
         {/* SIDEBAR */}
-        <aside className="w-[200px] shrink-0 bg-white dark:bg-gray-900 border-r border-[#e8ebe9] dark:border-gray-800 py-5 px-3 flex flex-col gap-1 overflow-y-auto hidden md:flex">
-          <button onClick={() => setActiveTab('inicio')} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium transition-all duration-200 ease-out ${activeTab === 'inicio' ? 'bg-[#00674F] text-white shadow-sm' : 'text-[#5a6b63] dark:text-gray-300 hover:bg-[#E8F5F0] hover:text-[#00674F] hover:translate-x-1 hover:scale-[1.01] hover:shadow-sm dark:hover:bg-gray-800'}`}><Home size={16} /><span>Início</span></button>
-          <button onClick={() => setActiveTab('tarefas')} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium transition-all duration-200 ease-out ${activeTab === 'tarefas' ? 'bg-[#00674F] text-white shadow-sm' : 'text-[#5a6b63] dark:text-gray-300 hover:bg-[#E8F5F0] hover:text-[#00674F] hover:translate-x-1 hover:shadow-sm dark:hover:bg-gray-800'}`}><ListTodo size={16} /><span>Tarefas</span></button>
-          <button onClick={() => setActiveTab('agenda')} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium transition-all duration-200 ease-out ${activeTab === 'agenda' ? 'bg-[#00674F] text-white shadow-sm' : 'text-[#5a6b63] dark:text-gray-300 hover:bg-[#E8F5F0] hover:text-[#00674F] hover:translate-x-1 hover:shadow-sm dark:hover:bg-gray-800'}`}><Calendar size={16} /><span>Agenda</span></button>
-          <button onClick={() => setActiveTab('disciplinas')} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium transition-all duration-200 ease-out ${activeTab === 'disciplinas' ? 'bg-[#00674F] text-white shadow-sm' : 'text-[#5a6b63] dark:text-gray-300 hover:bg-[#E8F5F0] hover:text-[#00674F] hover:translate-x-1 hover:shadow-sm dark:hover:bg-gray-800'}`}><GraduationCap size={16} /><span>Disciplinas</span></button>
-          <button onClick={() => setActiveTab('noticias')} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium transition-all duration-200 ease-out ${activeTab === 'noticias' ? 'bg-[#00674F] text-white shadow-sm' : 'text-[#5a6b63] dark:text-gray-300 hover:bg-[#E8F5F0] hover:text-[#00674F] hover:translate-x-1 hover:shadow-sm dark:hover:bg-gray-800'}`}><Megaphone size={16} /><span>Notícias</span></button>
-          <button onClick={() => setActiveTab('materiais')} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium transition-all duration-200 ease-out ${activeTab === 'materiais' ? 'bg-[#00674F] text-white shadow-sm' : 'text-[#5a6b63] dark:text-gray-300 hover:bg-[#E8F5F0] hover:text-[#00674F] hover:translate-x-1 hover:shadow-sm dark:hover:bg-gray-800'}`}><BookOpen size={16} /><span>Materiais</span></button>
-          <button onClick={() => setActiveTab('relatorios')} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium transition-all duration-200 ease-out ${activeTab === 'relatorios' ? 'bg-[#00674F] text-white shadow-sm' : 'text-[#5a6b63] dark:text-gray-300 hover:bg-[#E8F5F0] hover:text-[#00674F] hover:translate-x-1 hover:shadow-sm dark:hover:bg-gray-800'}`}><BarChart size={16} /><span>Relatórios</span></button>
+        <aside className={`${sidebarCollapsed ? 'w-[68px]' : 'w-[200px]'} shrink-0 bg-white dark:bg-gray-900 border-r border-[#e8ebe9] dark:border-gray-800 py-5 px-3 flex flex-col gap-1 overflow-y-auto overflow-x-hidden hidden md:flex transition-[width] duration-200`}>
+          {sidebarItems.map(({ id, label, icon: Icon }) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setActiveTab(id)}
+              aria-label={label}
+              aria-current={activeTab === id ? 'page' : undefined}
+              title={sidebarCollapsed ? label : undefined}
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium transition-all duration-200 ease-out ${sidebarCollapsed ? 'justify-center' : ''} ${activeTab === id ? 'bg-[#00674F] text-white shadow-sm' : `text-[#5a6b63] dark:text-gray-300 hover:bg-[#E8F5F0] hover:text-[#00674F] ${sidebarCollapsed ? '' : 'hover:translate-x-1'} hover:shadow-sm dark:hover:bg-gray-800`}`}
+            >
+              <Icon size={16} className="shrink-0" />
+              {!sidebarCollapsed && <span>{label}</span>}
+            </button>
+          ))}
           <div className="flex-1" />
-          <div className="flex items-center gap-2 px-3 py-2 rounded-xl text-[#8a9e94] dark:text-gray-400 text-[11px] opacity-50"><ChevronLeft size={14} /><span>Recolher</span></div>
+          <button
+            type="button"
+            onClick={toggleSidebar}
+            aria-label={sidebarCollapsed ? 'Expandir menu' : 'Recolher menu'}
+            aria-expanded={!sidebarCollapsed}
+            title={sidebarCollapsed ? 'Expandir menu' : 'Recolher menu'}
+            className="flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-[#8a9e94] dark:text-gray-400 text-[11px] hover:bg-[#f0f5f2] dark:hover:bg-gray-800 hover:text-[#00674F] transition-colors"
+          >
+            {sidebarCollapsed ? <ChevronRight size={14} /> : <><ChevronLeft size={14} /><span>Recolher</span></>}
+          </button>
         </aside>
 
         {/* CONTEÚDO DAS ABAS */}
-        <main ref={mainRef} className="flex-1 min-w-0 p-3 pb-24 sm:p-[22px] sm:pb-24 md:pb-[22px] flex flex-col gap-[18px] overflow-auto">
+        <main ref={mainRef} className="flex-1 min-w-0 p-3 pb-28 sm:p-[22px] sm:pb-28 md:pb-20 flex flex-col gap-[18px] overflow-auto">
           <div className="flex flex-col gap-4">
 
             {/* ==================== ABA INÍCIO (DESIGN PREMIUM + DADOS AO VIVO) ==================== */}
@@ -1653,6 +1806,14 @@ export default function Dashboard({ session, isDark, toggleDark }) {
             )}
 
 
+            {/* ==================== ABA MODERAÇÃO (só administradores) ==================== */}
+            {activeTab === 'moderacao' && isAdmin && (
+              <Suspense fallback={<div className="h-40 rounded-2xl bg-white dark:bg-gray-900 border border-[#e4e9e6] dark:border-gray-800 animate-pulse" />}>
+                <Moderation showNotification={showNotification} onPostDeleted={fetchPosts} />
+              </Suspense>
+            )}
+
+
             {/* ==================== ABA RELATÓRIOS ==================== */}
             {activeTab === 'relatorios' && (
               <Suspense fallback={<div className="h-40 rounded-2xl bg-white dark:bg-gray-900 border border-[#e4e9e6] dark:border-gray-800 animate-pulse" />}>
@@ -1902,7 +2063,9 @@ export default function Dashboard({ session, isDark, toggleDark }) {
                         {(filterDifficulty || filterLabel) && <span className="w-1.5 h-1.5 rounded-full bg-[#00674F]"></span>}
                       </button>
                       {showFilterMenu && (
-                        <div className="absolute right-0 top-9 z-30 bg-white dark:bg-gray-900 border border-[#e4e9e6] dark:border-gray-800 rounded-xl shadow-lg p-4 w-56 space-y-4">
+                        <>
+                        <button type="button" aria-label="Fechar filtros" className="fixed inset-0 z-20 cursor-default" onClick={() => setShowFilterMenu(false)} />
+                        <div className="absolute left-0 lg:left-auto lg:right-0 top-9 z-30 bg-white dark:bg-gray-900 border border-[#e4e9e6] dark:border-gray-800 rounded-xl shadow-lg p-4 w-56 max-w-[calc(100vw-48px)] space-y-4">
                           <div>
                             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Dificuldade</p>
                             <div className="flex flex-wrap gap-1.5">
@@ -1937,6 +2100,7 @@ export default function Dashboard({ session, isDark, toggleDark }) {
                             Limpar filtros
                           </button>
                         </div>
+                        </>
                       )}
                     </div>
                     {/* BOTÃO QUE ABRE O MODAL */}
@@ -2033,7 +2197,7 @@ export default function Dashboard({ session, isDark, toggleDark }) {
 
                               {/* Ações: lixeira + chevron */}
                               <div className="flex items-center gap-1 ml-2 shrink-0">
-                                <button onClick={(e) => { e.stopPropagation(); deleteTask(task.id) }} className="text-gray-300 hover:text-red-500 p-1.5 opacity-0 group-hover:opacity-100 transition-all rounded-md hover:bg-red-50">
+                                <button onClick={(e) => { e.stopPropagation(); deleteTask(task.id) }} className="text-gray-300 hover:text-red-500 p-1.5 opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100 transition-all rounded-md hover:bg-red-50">
                                   <Trash2 size={14} />
                                 </button>
                                 <div className={`p-1.5 rounded-md transition-transform duration-200 ${isExpanded ? 'rotate-180 text-[#00674F]' : 'text-gray-400'}`}>
@@ -2233,7 +2397,7 @@ export default function Dashboard({ session, isDark, toggleDark }) {
                                   <div className="text-[9px] opacity-75 mt-0.5">{ev.event_time || 'Sem horário'}</div>
                                   <button
                                     onClick={(e) => requestDeleteEvent(ev.id, e)}
-                                    className="absolute top-1 right-1 p-1 rounded-md bg-white/70 text-red-400 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-50"
+                                    className="absolute top-1 right-1 p-1 rounded-md bg-white/70 text-red-400 opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity hover:bg-red-50"
                                     title="Remover evento"
                                   >
                                     <Trash2 size={10} />
@@ -2279,7 +2443,7 @@ export default function Dashboard({ session, isDark, toggleDark }) {
                             <div className="text-[9px] opacity-75 mt-1">{ev.category} • {ev.event_time || 'Sem horário'}</div>
                             <button
                               onClick={(e) => requestDeleteEvent(ev.id, e)}
-                              className="absolute top-1.5 right-1.5 p-1 rounded-md bg-white/70 text-red-400 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-50"
+                              className="absolute top-1.5 right-1.5 p-1 rounded-md bg-white/70 text-red-400 opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity hover:bg-red-50"
                               title="Remover evento"
                             >
                               <Trash2 size={11} />
@@ -2402,10 +2566,24 @@ export default function Dashboard({ session, isDark, toggleDark }) {
                     {/* Avatar */}
                     <div className="flex flex-col items-center mb-6">
                       <div className="relative">
-                        <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[#D3AF37] to-[#a88620] flex items-center justify-center text-2xl font-bold text-white shadow-sm">
-                          {avatarInitials}
-                        </div>
+                        <Avatar url={myAvatarUrl} initials={avatarInitials} className="w-20 h-20 rounded-full bg-gradient-to-br from-[#D3AF37] to-[#a88620] flex items-center justify-center text-2xl font-bold text-white shadow-sm" />
+                        <button
+                          type="button"
+                          onClick={() => avatarInputRef.current?.click()}
+                          disabled={avatarBusy}
+                          aria-label="Alterar foto de perfil"
+                          title="Alterar foto"
+                          className="absolute right-0 bottom-0 w-7 h-7 bg-[#00674F] text-white rounded-full flex items-center justify-center border-[3px] border-white dark:border-gray-900 shadow-sm hover:bg-[#004c3b] disabled:opacity-60 transition-colors"
+                        >
+                          {avatarBusy ? <span className="w-3 h-3 rounded-full border-2 border-white/40 border-t-white animate-spin" /> : <Camera size={12} />}
+                        </button>
+                        <input ref={avatarInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleAvatarFile} aria-label="Escolher foto de perfil" />
                       </div>
+                      {myAvatarUrl && (
+                        <button type="button" onClick={handleRemoveAvatar} disabled={avatarBusy} className="mt-2 text-[11px] font-semibold text-gray-400 hover:text-red-500 disabled:opacity-60 transition-colors">
+                          Remover foto
+                        </button>
+                      )}
                     </div>
 
                     <form onSubmit={handleSaveSettings} className="space-y-4 flex-1 flex flex-col">
@@ -2575,7 +2753,7 @@ export default function Dashboard({ session, isDark, toggleDark }) {
       {/* ==================== NAVEGAÇÃO INFERIOR (CELULAR) ==================== */}
       <nav
         aria-label="Navegação principal"
-        className="md:hidden shrink-0 grid grid-cols-7 bg-white dark:bg-gray-900 border-t border-[#e8ebe9] dark:border-gray-800 shadow-[0_-4px_16px_rgba(0,0,0,0.06)] pb-[env(safe-area-inset-bottom)] z-[9998]"
+        className="md:hidden fixed bottom-0 inset-x-0 grid grid-cols-7 bg-white dark:bg-gray-900 border-t border-[#e8ebe9] dark:border-gray-800 shadow-[0_-4px_16px_rgba(0,0,0,0.06)] pb-[env(safe-area-inset-bottom)] z-[9998]"
       >
         {MOBILE_NAV_ITEMS.map(({ id, label, icon: Icon }) => {
           const active = activeTab === id
@@ -2599,7 +2777,7 @@ export default function Dashboard({ session, isDark, toggleDark }) {
       {/* Botão flutuante */}
       <button
         onClick={() => setIsFeedOpen(true)}
-        className="fixed bottom-[84px] md:bottom-6 right-4 md:right-6 z-[99990] w-14 h-14 rounded-full bg-gradient-to-br from-[#00674F] to-[#004c3b] text-white shadow-[0_4px_20px_rgba(0,103,79,0.45)] hover:shadow-[0_6px_28px_rgba(0,103,79,0.6)] hover:scale-110 active:scale-95 transition-all duration-200 flex items-center justify-center"
+        className="fixed bottom-[calc(84px+env(safe-area-inset-bottom))] md:bottom-6 right-4 md:right-6 z-[99990] w-14 h-14 rounded-full bg-gradient-to-br from-[#00674F] to-[#004c3b] text-white shadow-[0_4px_20px_rgba(0,103,79,0.45)] hover:shadow-[0_6px_28px_rgba(0,103,79,0.6)] hover:scale-110 active:scale-95 transition-all duration-200 flex items-center justify-center"
         title="Feed Central da UFA"
       >
         <Megaphone size={22} />
@@ -2613,7 +2791,7 @@ export default function Dashboard({ session, isDark, toggleDark }) {
       {/* Painel flutuante */}
       {isFeedOpen && (
         <div
-          className="fixed bottom-[148px] md:bottom-[88px] right-3 md:right-6 z-[99990] w-[420px] max-w-[calc(100vw-24px)] max-h-[calc(100dvh-230px)] md:max-h-none flex flex-col rounded-2xl shadow-[0_8px_40px_rgba(0,0,0,0.18)] overflow-hidden border border-[#e4e9e6] dark:border-gray-800"
+          className="fixed bottom-[calc(148px+env(safe-area-inset-bottom))] md:bottom-[88px] right-3 md:right-6 z-[99990] w-[420px] max-w-[calc(100vw-24px)] max-h-[calc(100dvh-230px-env(safe-area-inset-bottom))] md:max-h-none flex flex-col rounded-2xl shadow-[0_8px_40px_rgba(0,0,0,0.18)] overflow-hidden border border-[#e4e9e6] dark:border-gray-800"
           style={{
             height: 'min(650px, 80vh)',
             animation: 'feedSlideUp 0.25s cubic-bezier(0.34,1.4,0.64,1)',
@@ -2673,9 +2851,7 @@ export default function Dashboard({ session, isDark, toggleDark }) {
                 return (
                   <div key={post.id} className="p-4 rounded-2xl bg-white dark:bg-gray-800 border border-[#e8ede9] dark:border-gray-700 shadow-[0_1px_6px_rgba(0,0,0,0.035)] hover:shadow-md transition-all">
                     <div className="flex items-start gap-3">
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0 ${index % 2 === 0 ? 'bg-gradient-to-br from-[#D3AF37] to-[#b8942a]' : 'bg-gradient-to-br from-[#00674F] to-[#004c3b]'}`}>
-                        {initials}
-                      </div>
+                      <Avatar url={avatarsMap[post.user_id]} initials={initials} className={`w-10 h-10 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0 ${index % 2 === 0 ? 'bg-gradient-to-br from-[#D3AF37] to-[#b8942a]' : 'bg-gradient-to-br from-[#00674F] to-[#004c3b]'}`} />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-2">
                           <div>

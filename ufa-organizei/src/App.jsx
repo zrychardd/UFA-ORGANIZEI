@@ -133,7 +133,7 @@ function UpdateBanner() {
   return (
     <div
       role="status"
-      className="fixed left-1/2 -translate-x-1/2 bottom-20 md:bottom-5 z-[100001] flex items-center gap-3 bg-[#1a2e26] text-white text-xs font-medium pl-4 pr-2 py-2 rounded-full shadow-[0_12px_40px_rgba(0,0,0,0.3)]"
+      className="fixed left-1/2 -translate-x-1/2 bottom-[calc(5rem+env(safe-area-inset-bottom))] md:bottom-5 z-[100001] flex items-center gap-3 bg-[#1a2e26] text-white text-xs font-medium pl-4 pr-2 py-2 rounded-full shadow-[0_12px_40px_rgba(0,0,0,0.3)]"
     >
       Nova versão disponível
       <button type="button" onClick={applyUpdate} className="bg-[#D3AF37] hover:bg-[#c29f2e] text-[#1a2e26] font-bold px-3.5 py-1.5 rounded-full transition-colors">
